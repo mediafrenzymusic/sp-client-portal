@@ -693,6 +693,13 @@ window.createGallery = async () => {
       const safeName = `${String(i + 1).padStart(4, '0')}_${file.name.replace(/[^a-z0-9.\-_]/gi, '_')}`;
       const storageRef = ref(storage, `galleries/${galleryId}/${safeName}`);
       text.textContent = `Uploading ${i + 1} of ${total}...`;
+      const BATCH_SIZE = 5; // upload 5 at a time
+  for (let b = 0; b < total; b += BATCH_SIZE) {
+    const batch = selectedFiles.slice(b, b + BATCH_SIZE);
+    await Promise.all(batch.map(async (file, bIdx) => {
+      const i = b + bIdx;
+      const safeName = `${String(i + 1).padStart(4, '0')}_${file.name.replace(/[^a-z0-9.\-_]/gi, '_')}`;
+      const storageRef = ref(storage, `galleries/${galleryId}/${safeName}`);
       await uploadBytesResumable(storageRef, file, { contentType: file.type });
       imageUrls[i] = await getDownloadURL(storageRef);
       uploaded++;
@@ -700,8 +707,10 @@ window.createGallery = async () => {
       fill.style.width = p + '%';
       pct.textContent = p + '%';
       sub.textContent = `${uploaded} of ${total} uploaded`;
-    }
-
+      text.textContent = `Uploading... (${uploaded} of ${total})`;
+    }));
+  }
+This uploads 5 images simultaneously in batches, which should be roughly 4-5x faster. You can increase BATCH_SIZE to 10 if you want even more speed, though very large batches can occasionally cause timeouts on slow connections.
     text.textContent = 'Creating gallery...';
     const images = imageUrls.map(url => ({ url, status: 'pending', comments: [] }));
     await addDoc(collection(db, 'galleries'), { id: galleryId, name, clientEmail, shootDate, images, createdAt: serverTimestamp() });
