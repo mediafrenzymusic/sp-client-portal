@@ -153,6 +153,8 @@ html,body{min-height:100%;background:var(--black);font-family:'Onest',sans-serif
 /* ── Admin delete ── */
 .gallery-delete-btn{font-size:11px;color:var(--red);background:none;border:1px solid transparent;border-radius:6px;padding:3px 8px;cursor:pointer;margin-top:6px}
 .gallery-delete-btn:hover{border-color:var(--red);background:var(--red-light)}
+.btn-notify-client{font-size:11px;color:var(--gold);background:none;border:1px solid var(--border2);border-radius:6px;padding:4px 10px;cursor:pointer}
+.btn-notify-client:hover{background:rgba(239,186,107,0.1)}
 /* ── Empty ── */
 .empty{text-align:center;padding:64px 24px;color:var(--text3)}
 .empty-icon{font-size:48px;margin-bottom:16px;opacity:.4}
@@ -430,10 +432,13 @@ function renderGalleries(galleries) {
         <div class="gallery-stats">
           ${approved ? `<span class="stat-pill approved">✓ ${approved} approved</span>` : ''}
           ${rejected ? `<span class="stat-pill rejected">✗ ${rejected} rejected</span>` : ''}
-          ${pending ? `<span class="stat-pill pending">${pending} pending</span>` : ''}
           ${totalComments ? `<span class="stat-pill comments">💬 ${totalComments}</span>` : ''}
         </div>
-        ${isAdmin ? `<button class="gallery-delete-btn" onclick="event.stopPropagation();deleteGallery('${g.id}')">Delete gallery</button>` : ''}
+        ${isAdmin ? `
+          <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
+            <button class="btn-notify-client" onclick="event.stopPropagation();notifyClient('${g.id}','${g.name}','${g.clientEmail}','${g.shootDate||''}')">✉ Notify client</button>
+            <button class="gallery-delete-btn" style="margin-top:0" onclick="event.stopPropagation();deleteGallery('${g.id}')">Delete gallery</button>
+          </div>` : ''}
       </div>
     </div>`;
   }).join('');
@@ -470,7 +475,7 @@ function renderImages() {
     return `<div class="image-card ${status}" id="imgcard-${idx}">
       <div class="img-wrap" onclick="openLightbox(${idx})">
         <img src="${img.url}" loading="lazy" alt="Image ${idx+1}"/>
-        <div class="img-status-badge ${status}">${status==='approved'?'✓ Approved':status==='rejected'?'✗ Rejected':'Pending'}</div>
+        ${status !== 'pending' ? `<div class="img-status-badge ${status}">${status==='approved'?'✓ Approved':'✗ Rejected'}</div>` : ''}
         <div class="img-num">${idx+1} / ${currentImages.length}</div>
       </div>
       <div class="img-actions">
