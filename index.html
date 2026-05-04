@@ -305,7 +305,10 @@ html,body{min-height:100%;background:var(--black);font-family:'Onest',sans-serif
         <div class="gallery-header-title" id="gv-title"></div>
         <div class="gallery-header-sub" id="gv-sub"></div>
       </div>
-      <button class="download-all-btn" onclick="downloadZip()" id="dl-all-btn">↓ Download all as ZIP</button>
+      <div style="display:flex;gap:8px">
+        <button class="download-all-btn" onclick="downloadZip('approved')" id="dl-approved-btn">↓ Approved ZIP</button>
+        <button class="download-all-btn" onclick="downloadZip('all')" id="dl-all-btn" style="background:var(--surface2);color:var(--text2);border:1px solid var(--border)">↓ All ZIP</button>
+      </div>
     </div>
     <div class="gallery-progress">
       <div class="progress-bar"><div class="progress-fill" id="gv-progress" style="width:0%"></div></div>
@@ -631,53 +634,61 @@ window.downloadAll = () => {
   });
 };
 
-window.downloadZip = async () => {
-  if (!currentImages.length) { showToast('No images to download'); return; }
+window.downloadZip = async (filter = 'all') => {
+  const toDownload = filter === 'approved'
+    ? currentImages.filter(i => i.status === 'approved')
+    : currentImages;
+
+  if (!toDownload.length) {
+    showToast(filter === 'approved' ? 'No approved images yet' : 'No images to download');
+    return;
+  }
+
   const galleryName = currentGallery ? currentGallery.name.replace(/[^a-z0-9]/gi,'_') : 'gallery';
+  const zipName = filter === 'approved' ? `${galleryName}_approved` : galleryName;
 
   // Show progress overlay
   const overlay = document.createElement('div');
   overlay.className = 'zip-overlay';
   overlay.innerHTML = `<div class="zip-card">
     <div class="zip-title">Preparing your download</div>
-    <div class="zip-sub">Packaging ${currentImages.length} images into a ZIP file…</div>
+    <div class="zip-sub">Packaging ${toDownload.length} ${filter === 'approved' ? 'approved ' : ''}image${toDownload.length !== 1 ? 's' : ''} into a ZIP file…</div>
     <div class="zip-track"><div class="zip-fill" id="zip-fill" style="width:0%"></div></div>
-    <div class="zip-count" id="zip-count">0 of ${currentImages.length}</div>
+    <div class="zip-count" id="zip-count">0 of ${toDownload.length}</div>
   </div>`;
   document.body.appendChild(overlay);
 
   try {
     const zip = new JSZip();
-    const folder = zip.folder(galleryName);
+    const folder = zip.folder(zipName);
     let loaded = 0;
 
-    await Promise.all(currentImages.map(async (img, idx) => {
+    await Promise.all(toDownload.map(async (img, idx) => {
       try {
         const response = await fetch(img.url);
         const blob = await response.blob();
         const ext = blob.type.includes('png') ? 'png' : blob.type.includes('webp') ? 'webp' : 'jpg';
-        folder.file(`${galleryName}_${String(idx+1).padStart(3,'0')}.${ext}`, blob);
+        folder.file(`${zipName}_${String(idx+1).padStart(3,'0')}.${ext}`, blob);
       } catch(e) {
-        // If CORS blocks, fall back to direct link
         folder.file(`image_${idx+1}_url.txt`, img.url);
       }
       loaded++;
-      const pct = Math.round(loaded / currentImages.length * 100);
+      const pct = Math.round(loaded / toDownload.length * 100);
       const fill = document.getElementById('zip-fill');
       const count = document.getElementById('zip-count');
       if (fill) fill.style.width = pct + '%';
-      if (count) count.textContent = `${loaded} of ${currentImages.length}`;
+      if (count) count.textContent = `${loaded} of ${toDownload.length}`;
     }));
 
     const zipBlob = await zip.generateAsync({ type:'blob', compression:'DEFLATE', compressionOptions:{level:3} });
     const url = URL.createObjectURL(zipBlob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${galleryName}.zip`;
+    a.download = `${zipName}.zip`;
     a.click();
     URL.revokeObjectURL(url);
-    notifyAdmin('download_all', 0, 'ZIP download');
-    showToast('✓ ZIP downloaded — ' + currentImages.length + ' images');
+    notifyAdmin('download_all', 0, `ZIP download (${filter})`);
+    showToast(`✓ ZIP downloaded — ${toDownload.length} image${toDownload.length !== 1 ? 's' : ''}`);
   } catch(err) {
     showToast('Something went wrong — try downloading individually');
     console.error(err);
