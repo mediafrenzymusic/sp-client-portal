@@ -516,7 +516,7 @@ window.setStatus = async (idx, status) => {
   await saveImages();
   renderImages();
   updateProgress();
-  notifyAdmin('status', idx, status);
+  if (currentUser) notifyAdmin('status', idx, status);
   showToast(status === 'approved' ? '✓ Image approved' : '✗ Image rejected');
 };
 
@@ -525,13 +525,14 @@ window.sendComment = async (idx) => {
   const el = document.getElementById(`comment-${idx}`);
   const text = el.value.trim();
   if (!text) return;
-  const comment = { who: currentUser.email, text, time: new Date().toLocaleString('en-GB') };
+  const who = currentUser ? currentUser.email : 'Guest';
+  const comment = { who, text, time: new Date().toLocaleString('en-GB') };
   if (!currentImages[idx].comments) currentImages[idx].comments = [];
   currentImages[idx].comments.push(comment);
   await saveImages();
   el.value = '';
   renderImages();
-  notifyAdmin('comment', idx, text);
+  if (currentUser) notifyAdmin('comment', idx, text);
   showToast('💬 Comment sent');
 };
 
