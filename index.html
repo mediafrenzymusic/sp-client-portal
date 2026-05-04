@@ -616,15 +616,17 @@ function updateProgress() {
 
 // ─── Download ─────────────────────────────────────────────────────────────────
 window.downloadImage = async (url, num) => {
+  const img = currentImages[num - 1];
   showToast('↓ Preparing image ' + num + '…');
   try {
     const response = await fetch(url);
     const blob = await response.blob();
     const ext = blob.type.includes('png') ? 'png' : blob.type.includes('webp') ? 'webp' : 'jpg';
+    const filename = img?.filename || `${currentGallery ? currentGallery.name.replace(/[^a-z0-9]/gi,'_') : 'image'}_${String(num).padStart(3,'0')}.${ext}`;
     const objectUrl = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = objectUrl;
-    a.download = `${currentGallery ? currentGallery.name.replace(/[^a-z0-9]/gi,'_') : 'image'}_${String(num).padStart(3,'0')}.${ext}`;
+    a.download = filename;
     a.click();
     URL.revokeObjectURL(objectUrl);
     if (currentUser) notifyAdmin('download', num - 1, url);
@@ -676,7 +678,8 @@ window.downloadZip = async (filter = 'all') => {
         const response = await fetch(img.url);
         const blob = await response.blob();
         const ext = blob.type.includes('png') ? 'png' : blob.type.includes('webp') ? 'webp' : 'jpg';
-        folder.file(`${zipName}_${String(idx+1).padStart(3,'0')}.${ext}`, blob);
+        const filename = img.filename || `${zipName}_${String(idx+1).padStart(3,'0')}.${ext}`;
+        folder.file(filename, blob);
       } catch(e) {
         folder.file(`image_${idx+1}_url.txt`, img.url);
       }
@@ -800,7 +803,7 @@ window.createGallery = async () => {
       }));
     }
     text.textContent = 'Creating gallery...';
-    const images = imageUrls.map(url => ({ url, status: 'pending', comments: [] }));
+    const images = imageUrls.map((url, i) => ({ url, filename: selectedFiles[i].name, status: 'pending', comments: [] }));
     await addDoc(collection(db, 'galleries'), { name, clientEmail, shootDate, images, shareToken, createdAt: serverTimestamp() });
     document.getElementById('gal-name').value = '';
     document.getElementById('gal-client-email').value = '';
