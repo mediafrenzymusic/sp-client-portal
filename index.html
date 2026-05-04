@@ -111,7 +111,7 @@ html,body{min-height:100%;background:var(--black);font-family:'Onest',sans-serif
 .image-card.rejected{border-color:var(--red);opacity:.6}
 .image-card.pending{border-color:var(--border)}
 .img-wrap{position:relative;cursor:pointer;overflow:hidden}
-.img-wrap img{width:100%;height:220px;object-fit:cover;display:block;transition:transform .3s}
+.img-wrap img{width:100%;max-height:360px;object-fit:contain;display:block;transition:transform .3s;background:var(--surface)}
 .img-wrap:hover img{transform:scale(1.03)}
 .img-status-badge{position:absolute;top:10px;left:10px;font-size:11px;font-weight:500;padding:4px 10px;border-radius:99px}
 .img-status-badge.approved{background:var(--green);color:#fff}
