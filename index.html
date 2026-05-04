@@ -360,12 +360,9 @@ let currentImages = [];
 let lbIndex = 0;
 let galleriesUnsub = null;
 
-// ─── Fast shared-link check — runs immediately, before Auth resolves ──────────
-// This prevents the spinner stalling while Firebase Auth initialises in Safari.
+// sharedLinkReady is initialised below, after checkSharedLink is defined
 let sharedLinkHandled = false;
-const sharedLinkReady = checkSharedLink().then(handled => {
-  sharedLinkHandled = handled;
-});
+let sharedLinkReady;
 
 // ─── Auth ───────────────────────────────────────────────────────────────────
 window.doAuth = async () => {
@@ -399,7 +396,7 @@ document.getElementById('auth-pass').addEventListener('keydown', e => { if(e.key
 
 onAuthStateChanged(auth, async user => {
   // If the shared-link path already handled the page, skip normal auth flow entirely
-  await sharedLinkReady;
+  if (sharedLinkReady) await sharedLinkReady;
   if (sharedLinkHandled) return;
   document.getElementById('loading').style.display = 'none';
   if (user) {
@@ -906,6 +903,16 @@ async function checkSharedLink() {
   updateProgress();
   return true; // handled — skip normal auth flow
 }
+
+// ─── Kick off shared-link check now that the function is defined ──────────────
+// In Safari, async functions in ES modules are NOT hoisted, so calling
+// checkSharedLink() before its definition silently returns undefined and hangs.
+// Defining it first, then starting the promise here, fixes the 30-second stall.
+sharedLinkReady = checkSharedLink().then(handled => {
+  sharedLinkHandled = handled;
+}).catch(() => {
+  // Firestore error — fall through to normal auth so the page doesn't hang
+});
 
 // ─── Lightbox ─────────────────────────────────────────────────────────────────
 window.openLightbox = (idx) => {
