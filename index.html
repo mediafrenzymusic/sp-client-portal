@@ -318,9 +318,10 @@ html,body{min-height:100%;background:var(--black);font-family:'Onest',sans-serif
         <div class="gallery-header-title" id="gv-title"></div>
         <div class="gallery-header-sub" id="gv-sub"></div>
       </div>
-      <div style="display:flex;gap:8px">
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
         <button class="download-all-btn" onclick="downloadZip('approved')" id="dl-approved-btn">↓ Approved ZIP</button>
         <button class="download-all-btn" onclick="downloadZip('all')" id="dl-all-btn" style="background:var(--surface2);color:var(--text2);border:1px solid var(--border)">↓ All ZIP</button>
+        <button class="download-all-btn" onclick="downloadFilenameList()" id="dl-names-btn" style="background:var(--surface2);color:var(--text2);border:1px solid var(--border)" title="Download a text file listing all approved image filenames">↓ Approved List</button>
       </div>
     </div>
     <div class="gallery-progress">
@@ -755,7 +756,31 @@ window.downloadZip = async (filter = 'all') => {
   }
 };
 
-// ─── Create gallery ───────────────────────────────────────────────────────────
+// ─── Download approved filename list ─────────────────────────────────────────
+window.downloadFilenameList = () => {
+  const approved = currentImages.filter(i => i.status === 'approved');
+  if (!approved.length) { showToast('No approved images yet'); return; }
+
+  const galleryName = currentGallery ? currentGallery.name : 'gallery';
+  const date = new Date().toLocaleDateString('en-GB');
+
+  const lines = [
+    `Approved images — ${galleryName}`,
+    `Generated: ${date}`,
+    `Total approved: ${approved.length}`,
+    ``,
+    ...approved.map((img, i) => img.filename || `image_${String(i+1).padStart(3,'0')}`)
+  ];
+
+  const blob = new Blob([lines.join('\n')], { type: 'text/plain' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${galleryName.replace(/[^a-z0-9]/gi,'_')}_approved_filenames.txt`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast(`✓ Downloaded list of ${approved.length} approved filenames`);
+};
 // ─── File handling ─────────────────────────────────────────────────────────────
 let selectedFiles = [];
 
