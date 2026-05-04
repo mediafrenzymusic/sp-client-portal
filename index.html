@@ -169,6 +169,20 @@ html,body{min-height:100%;background:var(--black);font-family:'Onest',sans-serif
 .empty{text-align:center;padding:64px 24px;color:var(--text3)}
 .empty-icon{font-size:48px;margin-bottom:16px;opacity:.4}
 
+/* ── Upload drop zone ── */
+.upload-drop-zone{border:2px dashed var(--border2);border-radius:var(--radius);padding:32px 20px;text-align:center;cursor:pointer;transition:all .2s;background:var(--surface)}
+.upload-drop-zone:hover,.upload-drop-zone.drag-over{border-color:var(--gold);background:rgba(239,186,107,0.05)}
+.upload-icon{font-size:28px;margin-bottom:8px;opacity:.6}
+.upload-title{font-size:15px;color:var(--text);margin-bottom:4px}
+.upload-sub{font-size:12px;color:var(--text3)}
+.upload-file-header{display:flex;align-items:center;justify-content:space-between;margin:10px 0 8px;font-size:13px;color:var(--text2)}
+.upload-thumbs{display:grid;grid-template-columns:repeat(auto-fill,minmax(64px,1fr));gap:6px;max-height:180px;overflow-y:auto;padding:4px}
+.upload-thumb{width:100%;aspect-ratio:1;object-fit:cover;border-radius:6px;border:1px solid var(--border)}
+.upload-prog-label{display:flex;justify-content:space-between;font-size:13px;color:var(--text2);margin-bottom:6px}
+.upload-prog-track{height:5px;background:var(--surface2);border-radius:99px;overflow:hidden;margin-bottom:6px}
+.upload-prog-fill{height:100%;background:var(--gold);border-radius:99px;transition:width .3s}
+.upload-prog-sub{font-size:12px;color:var(--text3);text-align:center}
+
 /* ── ZIP download progress ── */
 .zip-overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:300;display:flex;align-items:center;justify-content:center}
 .zip-card{background:var(--dark);border:1px solid var(--border2);border-radius:20px;padding:40px 48px;text-align:center;min-width:320px}
@@ -239,9 +253,26 @@ html,body{min-height:100%;background:var(--black);font-family:'Onest',sans-serif
           <input class="admin-input" id="gal-client-email" placeholder="Client email (for notifications)"/>
           <input class="admin-input" id="gal-date" placeholder="Shoot date (e.g. 12 May 2026)"/>
           <input class="admin-input" id="gal-password" placeholder="Gallery password"/>
-          <div class="image-input-group">
-            <textarea class="image-urls-area" id="gal-urls" placeholder="Paste Wix image URLs — one per line&#10;&#10;e.g.&#10;https://static.wixstatic.com/media/abc~mv2.jpg&#10;https://static.wixstatic.com/media/def~mv2.jpg"></textarea>
-            <div class="admin-help">Upload images to your Wix Media Manager first, then copy the URLs here. One URL per line.</div>
+          <div class="image-input-group admin-input-full">
+            <div class="upload-drop-zone" id="drop-zone" onclick="document.getElementById('file-input').click()">
+              <div class="upload-icon">⬆</div>
+              <div class="upload-title">Drag &amp; drop images here</div>
+              <div class="upload-sub">or click to browse — JPG, PNG, WEBP supported</div>
+              <div class="upload-sub" style="margin-top:4px;color:var(--gold)">Up to 200 images at once</div>
+            </div>
+            <input type="file" id="file-input" multiple accept="image/*" style="display:none" onchange="handleFileSelect(this.files)"/>
+            <div id="upload-file-list" style="display:none">
+              <div class="upload-file-header">
+                <span id="upload-file-count"></span>
+                <button class="btn-outline" style="padding:4px 12px;font-size:12px" onclick="clearFiles()">Clear</button>
+              </div>
+              <div class="upload-thumbs" id="upload-thumbs"></div>
+            </div>
+            <div id="upload-progress-wrap" style="display:none">
+              <div class="upload-prog-label"><span id="upload-prog-text">Uploading...</span><span id="upload-prog-pct">0%</span></div>
+              <div class="upload-prog-track"><div class="upload-prog-fill" id="upload-prog-fill" style="width:0%"></div></div>
+              <div class="upload-prog-sub" id="upload-prog-sub">0 of 0 uploaded</div>
+            </div>
           </div>
         </div>
         <div class="admin-actions">
@@ -295,6 +326,7 @@ html,body{min-height:100%;background:var(--black);font-family:'Onest',sans-serif
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import { getFirestore, collection, addDoc, doc, getDoc, getDocs, updateDoc, deleteDoc, onSnapshot, query, orderBy, serverTimestamp, arrayUnion } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { getStorage, ref, uploadBytesResumable, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDk9lXMzSZCyb60w9EhjTm2PcHW8EtrNYo",
@@ -308,6 +340,7 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
+const storage = getStorage(app);
 
 // ─── Config ────────────────────────────────────────────────────────────────
 const ADMIN_EMAIL = "stuart@stuartprice.co.uk"; // Change to your email
@@ -585,25 +618,112 @@ window.downloadZip = async () => {
 };
 
 // ─── Create gallery ───────────────────────────────────────────────────────────
+// ─── File handling ─────────────────────────────────────────────────────────────
+let selectedFiles = [];
+
+window.handleFileSelect = (files) => {
+  selectedFiles = Array.from(files);
+  showFilePreviews();
+};
+
+window.clearFiles = () => {
+  selectedFiles = [];
+  document.getElementById('file-input').value = '';
+  document.getElementById('upload-file-list').style.display = 'none';
+  document.getElementById('upload-thumbs').innerHTML = '';
+};
+
+function showFilePreviews() {
+  if (!selectedFiles.length) return;
+  document.getElementById('upload-file-list').style.display = 'block';
+  document.getElementById('upload-file-count').textContent = selectedFiles.length + ' image' + (selectedFiles.length !== 1 ? 's' : '') + ' selected';
+  const thumbs = document.getElementById('upload-thumbs');
+  thumbs.innerHTML = '';
+  selectedFiles.slice(0, 50).forEach(file => {
+    const img = document.createElement('img');
+    img.className = 'upload-thumb';
+    img.src = URL.createObjectURL(file);
+    thumbs.appendChild(img);
+  });
+  if (selectedFiles.length > 50) {
+    const more = document.createElement('div');
+    more.style.cssText = 'display:flex;align-items:center;justify-content:center;background:var(--surface2);border-radius:6px;font-size:11px;color:var(--text3);aspect-ratio:1';
+    more.textContent = '+' + (selectedFiles.length - 50) + ' more';
+    thumbs.appendChild(more);
+  }
+}
+
+// Drag and drop
+const dropZone = document.getElementById('drop-zone');
+['dragenter','dragover'].forEach(e => dropZone.addEventListener(e, ev => { ev.preventDefault(); dropZone.classList.add('drag-over'); }));
+['dragleave','drop'].forEach(e => dropZone.addEventListener(e, ev => { ev.preventDefault(); dropZone.classList.remove('drag-over'); }));
+dropZone.addEventListener('drop', ev => {
+  const files = Array.from(ev.dataTransfer.files).filter(f => f.type.startsWith('image/'));
+  if (files.length) { selectedFiles = files; showFilePreviews(); }
+});
+
+// ─── Create gallery with upload ──────────────────────────────────────────────
 window.createGallery = async () => {
   const name = document.getElementById('gal-name').value.trim();
   const clientEmail = document.getElementById('gal-client-email').value.trim();
   const shootDate = document.getElementById('gal-date').value.trim();
-  const urlsRaw = document.getElementById('gal-urls').value.trim();
-  if (!name || !clientEmail || !urlsRaw) { showToast('Please fill in name, email and at least one image URL'); return; }
-  const urls = urlsRaw.split('\n').map(u => u.trim()).filter(u => u.length > 0);
-  const images = urls.map(url => ({ url, status: 'pending', comments: [] }));
+  if (!name || !clientEmail) { showToast('Please fill in client name and email'); return; }
+  if (!selectedFiles.length) { showToast('Please select at least one image to upload'); return; }
+
+  // Show upload progress
+  document.getElementById('upload-progress-wrap').style.display = 'block';
+  document.getElementById('upload-file-list').style.display = 'none';
+  const progFill = document.getElementById('upload-prog-fill');
+  const progText = document.getElementById('upload-prog-text');
+  const progPct = document.getElementById('upload-prog-pct');
+  const progSub = document.getElementById('upload-prog-sub');
+  document.querySelector('.add-btn') && (document.querySelector('[onclick="createGallery()"]').disabled = true);
+
+  const galleryId = name.replace(/[^a-z0-9]/gi,'_') + '_' + Date.now();
+  const total = selectedFiles.length;
+  let uploaded = 0;
+  const imageUrls = [];
+
+  // Upload in batches of 5 to avoid overwhelming the browser
+  const batchSize = 5;
+  for (let i = 0; i < selectedFiles.length; i += batchSize) {
+    const batch = selectedFiles.slice(i, i + batchSize);
+    await Promise.all(batch.map(async (file) => {
+      const ext = file.name.split('.').pop();
+      const safeName = String(imageUrls.length + 1).padStart(4,'0') + '_' + file.name.replace(/[^a-z0-9.]/gi,'_');
+      const storageRef = ref(storage, `galleries/${galleryId}/${safeName}`);
+      await new Promise((resolve, reject) => {
+        const task = uploadBytesResumable(storageRef, file, { contentType: file.type });
+        task.on('state_changed', null, reject, async () => {
+          const url = await getDownloadURL(task.snapshot.ref);
+          imageUrls.push(url);
+          uploaded++;
+          const pct = Math.round(uploaded / total * 100);
+          progFill.style.width = pct + '%';
+          progPct.textContent = pct + '%';
+          progSub.textContent = uploaded + ' of ' + total + ' uploaded';
+          resolve();
+        });
+      });
+    }));
+  }
+
+  progText.textContent = 'Creating gallery…';
+  const images = imageUrls.map(url => ({ url, status: 'pending', comments: [] }));
   await addDoc(collection(db, 'galleries'), {
     name, clientEmail, shootDate,
     images,
     createdAt: serverTimestamp()
   });
+
+  // Reset form
   document.getElementById('gal-name').value = '';
   document.getElementById('gal-client-email').value = '';
   document.getElementById('gal-date').value = '';
-  document.getElementById('gal-urls').value = '';
+  clearFiles();
+  document.getElementById('upload-progress-wrap').style.display = 'none';
   document.getElementById('admin-bar').style.display = 'none';
-  showToast('✓ Gallery created — ' + images.length + ' images added');
+  showToast('✓ Gallery created — ' + images.length + ' images uploaded');
 };
 
 // ─── Delete gallery ────────────────────────────────────────────────────────────
