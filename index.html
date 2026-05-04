@@ -209,7 +209,7 @@ html,body{min-height:100%;background:var(--black);font-family:'Onest',sans-serif
 
 <!-- Link access banner (shown when entering via shared link) -->
 <div id="link-banner" style="display:none" class="link-access-banner">
-  You're viewing <strong id="link-banner-name"></strong> via a shared link &mdash; no login required.
+  Welcome to your gallery &mdash; <strong id="link-banner-name"></strong>
 </div>
 
 <!-- Auth -->
@@ -836,8 +836,12 @@ async function checkSharedLink() {
   document.getElementById('link-banner-name').textContent = matched.data().name;
   banner.style.display = 'block';
 
-  // Hide admin controls
+  // Hide admin controls and back button — guest has only this one gallery
   document.getElementById('admin-badge').style.display = 'none';
+  document.getElementById('admin-create-wrap').style.display = 'none';
+  // Hide back button so guest can't navigate to a blank gallery list
+  const backBtn = document.querySelector('.back-btn');
+  if (backBtn) backBtn.style.display = 'none';
 
   currentGallery = { ...matched.data(), id: matched.id };
   currentImages = currentGallery.images || [];
