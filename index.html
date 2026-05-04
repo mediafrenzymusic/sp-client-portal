@@ -207,7 +207,10 @@ html,body{min-height:100%;background:var(--black);font-family:'Onest',sans-serif
     <div class="auth-title" id="auth-title">Client Downloads</div>
     <div class="auth-sub" id="auth-sub">Enter your details to access your downloads</div>
     <input class="auth-input" id="auth-email" type="email" placeholder="Email address" autocomplete="email"/>
-    <input class="auth-input" id="auth-pass" type="password" placeholder="Password" autocomplete="current-password"/>
+    <div style="position:relative;width:100%;margin-bottom:12px">
+      <input class="auth-input" id="auth-pass" type="password" placeholder="Password" autocomplete="current-password" style="margin-bottom:0;padding-right:44px"/>
+      <button type="button" onclick="togglePassword()" id="pass-toggle" style="position:absolute;right:14px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--text3);font-size:18px;padding:0;line-height:1" title="Show password">&#128065;</button>
+    </div>
     <button class="auth-btn" onclick="doAuth()">Access Gallery</button>
     <div class="auth-err" id="auth-err"></div>
     <div class="auth-switch">Stuart Price Photography &mdash; <a href="mailto:stuart@stuartprice.co.uk">Contact</a></div>
@@ -360,6 +363,14 @@ window.doSignOut = async () => {
   await signOut(auth);
 };
 
+window.togglePassword = () => {
+  const input = document.getElementById('auth-pass');
+  const btn = document.getElementById('pass-toggle');
+  const show = input.type === 'password';
+  input.type = show ? 'text' : 'password';
+  btn.style.opacity = show ? '1' : '0.5';
+};
+
 document.getElementById('auth-email').addEventListener('keydown', e => { if(e.key==='Enter') document.getElementById('auth-pass').focus(); });
 document.getElementById('auth-pass').addEventListener('keydown', e => { if(e.key==='Enter') window.doAuth(); });
 
@@ -392,7 +403,7 @@ onAuthStateChanged(auth, async user => {
 function loadGalleries() {
   const q = query(collection(db, 'galleries'), orderBy('createdAt', 'desc'));
   galleriesUnsub = onSnapshot(q, snap => {
-    const galleries = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    const galleries = snap.docs.map(d => ({ ...d.data(), id: d.id }));
     const visible = isAdmin ? galleries : galleries.filter(g => g.clientEmail === currentUser.email);
     renderGalleries(visible);
   });
