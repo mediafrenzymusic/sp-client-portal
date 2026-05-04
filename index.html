@@ -329,7 +329,7 @@ html,body{min-height:100%;background:var(--black);font-family:'Onest',sans-serif
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-import { getFirestore, collection, addDoc, doc, getDoc, getDocs, updateDoc, deleteDoc, onSnapshot, query, orderBy, serverTimestamp, arrayUnion } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { getFirestore, collection, addDoc, doc, getDoc, getDocs, updateDoc, deleteDoc, onSnapshot, query, orderBy, where, serverTimestamp, arrayUnion } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { getStorage, ref, uploadBytesResumable, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js";
 
 const firebaseConfig = {
@@ -810,9 +810,9 @@ async function checkSharedLink() {
   if (!token) return false;
 
   // Find gallery by shareToken
-  const q = query(collection(db, 'galleries'), orderBy('createdAt', 'desc'));
+  const q = query(collection(db, 'galleries'), where('shareToken', '==', token));
   const snap = await getDocs(q);
-  const matched = snap.docs.find(d => d.data().shareToken === token);
+  const matched = snap.docs[0];
   if (!matched) {
     document.getElementById('loading').style.display = 'none';
     document.getElementById('auth-screen').style.display = 'flex';
