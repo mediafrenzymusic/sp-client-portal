@@ -460,10 +460,18 @@ window.showGalleryList = () => {
 };
 
 // ─── Render images ────────────────────────────────────────────────────────────
+const STATUS_ORDER = { approved: 0, pending: 1, rejected: 2 };
+
 function renderImages() {
   const grid = document.getElementById('images-grid');
   if (!currentImages.length) { grid.innerHTML = '<div class="empty"><div class="empty-icon">📷</div>No images in this gallery.</div>'; return; }
-  grid.innerHTML = currentImages.map((img, idx) => {
+
+  // Sort by status (approved → pending → rejected) but keep original idx for all actions
+  const sorted = currentImages
+    .map((img, idx) => ({ img, idx }))
+    .sort((a, b) => (STATUS_ORDER[a.img.status || 'pending'] || 1) - (STATUS_ORDER[b.img.status || 'pending'] || 1));
+
+  grid.innerHTML = sorted.map(({ img, idx }) => {
     const status = img.status || 'pending';
     const comments = img.comments || [];
     return `<div class="image-card ${status}" id="imgcard-${idx}">
@@ -528,6 +536,16 @@ function patchImageCard(idx) {
   } else if (clearBtn) {
     clearBtn.remove();
   }
+
+  // Re-sort cards in the DOM: approved → pending → rejected
+  const grid = document.getElementById('images-grid');
+  const cards = Array.from(grid.querySelectorAll('.image-card'));
+  cards.sort((a, b) => {
+    const sa = STATUS_ORDER[a.classList[1] || 'pending'] ?? 1;
+    const sb = STATUS_ORDER[b.classList[1] || 'pending'] ?? 1;
+    return sa - sb;
+  });
+  cards.forEach(c => grid.appendChild(c));
 
   // Update comments list
   let commentsList = card.querySelector('.comments-list');
