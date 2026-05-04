@@ -758,7 +758,33 @@ window.deleteGallery = async (id) => {
   showToast('Gallery deleted');
 };
 
-// ─── Copy shareable link ───────────────────────────────────────────────────────
+// ─── Notify client (opens your email app pre-filled) ─────────────────────────
+window.notifyClient = async (galleryId, galleryName, clientEmail, shootDate) => {
+  if (!clientEmail) return showToast('No client email on this gallery.');
+
+  const snap = await getDoc(doc(db, 'galleries', galleryId));
+  const shareToken = snap.exists() ? snap.data().shareToken : null;
+  const galleryLink = shareToken
+    ? `${location.origin}${location.pathname}?g=${encodeURIComponent(shareToken)}`
+    : `${location.origin}${location.pathname}`;
+
+  const subject = encodeURIComponent(`Your photos are ready — ${galleryName}`);
+  const body = encodeURIComponent(
+`Hi,
+
+Your photographs${shootDate ? ' from ' + shootDate : ''} are now ready to view and download.
+
+Click the link below to access your gallery:
+${galleryLink}
+
+Please take a look and let me know if you have any questions.
+
+Best wishes,
+Stuart`
+  );
+
+  window.location.href = `mailto:${clientEmail}?subject=${subject}&body=${body}`;
+};
 window.copyGalleryLink = async (docId, shareToken, galleryName) => {
   // If no shareToken yet (old gallery), generate and save one
   let token = shareToken;
