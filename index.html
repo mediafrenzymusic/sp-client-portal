@@ -180,6 +180,17 @@ html,body{min-height:100%;background:var(--black);font-family:'Onest',sans-serif
 .upload-prog-fill{height:100%;background:var(--gold);border-radius:99px;transition:width .3s}
 .upload-prog-sub{font-size:12px;color:var(--text3);text-align:center}
 
+/* ── Filter tabs ── */
+.filter-tabs{max-width:1100px;margin:0 auto;padding:16px 24px 0;display:flex;gap:8px;flex-wrap:wrap}
+.filter-tab{font-family:'Onest',sans-serif;font-size:13px;font-weight:500;border-radius:99px;border:1px solid var(--border);padding:7px 16px;cursor:pointer;background:var(--surface);color:var(--text3);transition:all .15s;display:flex;align-items:center;gap:6px}
+.filter-tab:hover{border-color:var(--border2);color:var(--text)}
+.filter-tab.active{background:var(--gold);border-color:var(--gold);color:var(--black)}
+.filter-tab.active-approved{background:var(--green);border-color:var(--green);color:#fff}
+.filter-tab.active-rejected{background:var(--red);border-color:var(--red);color:#fff}
+.filter-tab .tab-count{font-size:11px;opacity:.75}
+.section-divider{max-width:1100px;margin:24px auto 0;padding:0 24px}
+.section-divider-label{font-size:11px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:.1em;padding-bottom:12px;border-bottom:1px solid var(--border);margin-bottom:0}
+
 /* ── ZIP download progress ── */
 .zip-overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:300;display:flex;align-items:center;justify-content:center}
 .zip-card{background:var(--dark);border:1px solid var(--border2);border-radius:20px;padding:40px 48px;text-align:center;min-width:320px}
@@ -316,7 +327,13 @@ html,body{min-height:100%;background:var(--black);font-family:'Onest',sans-serif
       <div class="progress-bar"><div class="progress-fill" id="gv-progress" style="width:0%"></div></div>
       <div class="progress-meta"><span id="gv-prog-label">0 reviewed</span><span id="gv-prog-pct">0%</span></div>
     </div>
-    <div class="images-grid" id="images-grid"></div>
+    <div class="filter-tabs" id="filter-tabs">
+      <button class="filter-tab active" onclick="setFilter('all')" id="tab-all">All <span class="tab-count" id="tab-count-all"></span></button>
+      <button class="filter-tab" onclick="setFilter('approved')" id="tab-approved">✓ Approved <span class="tab-count" id="tab-count-approved"></span></button>
+      <button class="filter-tab" onclick="setFilter('pending')" id="tab-pending">Pending <span class="tab-count" id="tab-count-pending"></span></button>
+      <button class="filter-tab" onclick="setFilter('rejected')" id="tab-rejected">✗ Rejected <span class="tab-count" id="tab-count-rejected"></span></button>
+    </div>
+    <div id="images-grid"></div>
   </div>
 </div>
 
@@ -444,11 +461,12 @@ window.openGallery = async (galleryId) => {
   if (!snap.exists()) { showToast('Gallery not found'); return; }
   currentGallery = { ...snap.data(), id: snap.id };
   currentImages = currentGallery.images || [];
+  currentFilter = 'all';
   document.getElementById('gv-title').textContent = currentGallery.name;
   document.getElementById('gv-sub').textContent = (currentGallery.shootDate || '') + ' · ' + currentImages.length + ' images';
   document.getElementById('gallery-list').style.display = 'none';
   document.getElementById('gallery-view').style.display = 'block';
-  renderImages();
+  setFilter('all');
   updateProgress();
 };
 
@@ -461,106 +479,116 @@ window.showGalleryList = () => {
 
 // ─── Render images ────────────────────────────────────────────────────────────
 const STATUS_ORDER = { approved: 0, pending: 1, rejected: 2 };
+let currentFilter = 'all';
+
+window.setFilter = (filter) => {
+  currentFilter = filter;
+  // Update tab active states
+  ['all','approved','pending','rejected'].forEach(f => {
+    const tab = document.getElementById(`tab-${f}`);
+    tab.className = 'filter-tab';
+    if (f === filter) {
+      if (f === 'approved') tab.classList.add('active-approved');
+      else if (f === 'rejected') tab.classList.add('active-rejected');
+      else tab.classList.add('active');
+    }
+  });
+  renderImages();
+};
+
+function updateTabCounts() {
+  const all = currentImages.length;
+  const approved = currentImages.filter(i => i.status === 'approved').length;
+  const rejected = currentImages.filter(i => i.status === 'rejected').length;
+  const pending = currentImages.filter(i => !i.status || i.status === 'pending').length;
+  document.getElementById('tab-count-all').textContent = all;
+  document.getElementById('tab-count-approved').textContent = approved;
+  document.getElementById('tab-count-pending').textContent = pending;
+  document.getElementById('tab-count-rejected').textContent = rejected;
+}
 
 function renderImages() {
   const grid = document.getElementById('images-grid');
-  if (!currentImages.length) { grid.innerHTML = '<div class="empty"><div class="empty-icon">📷</div>No images in this gallery.</div>'; return; }
+  grid.className = '';
+  grid.style.cssText = '';
 
-  // Sort by status (approved → pending → rejected) but keep original idx for all actions
-  const sorted = currentImages
+  if (!currentImages.length) {
+    grid.innerHTML = '<div class="empty"><div class="empty-icon">📷</div>No images in this gallery.</div>';
+    return;
+  }
+
+  updateTabCounts();
+
+  // Filter images
+  const filtered = currentImages
     .map((img, idx) => ({ img, idx }))
-    .sort((a, b) => (STATUS_ORDER[a.img.status || 'pending'] || 1) - (STATUS_ORDER[b.img.status || 'pending'] || 1));
+    .filter(({ img }) => {
+      if (currentFilter === 'all') return true;
+      const s = img.status || 'pending';
+      return s === currentFilter;
+    });
 
-  grid.innerHTML = sorted.map(({ img, idx }) => {
-    const status = img.status || 'pending';
-    const comments = img.comments || [];
-    return `<div class="image-card ${status}" id="imgcard-${idx}">
-      <div class="img-wrap" onclick="openLightbox(${idx})">
-        <img src="${img.url}" loading="lazy" alt="Image ${idx+1}"/>
-        ${status !== 'pending' ? `<div class="img-status-badge ${status}">${status==='approved'?'✓ Approved':'✗ Rejected'}</div>` : ''}
-        <div class="img-num">${idx+1} / ${currentImages.length}</div>
+  if (!filtered.length) {
+    grid.innerHTML = `<div class="empty" style="padding:48px 24px"><div class="empty-icon">📷</div>No ${currentFilter} images yet.</div>`;
+    return;
+  }
+
+  if (currentFilter === 'all') {
+    // Render in sections: approved, pending, rejected
+    const sections = [
+      { key: 'approved', label: '✓ Approved' },
+      { key: 'pending',  label: 'Pending' },
+      { key: 'rejected', label: '✗ Rejected' },
+    ];
+    grid.innerHTML = sections.map(({ key, label }) => {
+      const items = currentImages
+        .map((img, idx) => ({ img, idx }))
+        .filter(({ img }) => (img.status || 'pending') === key);
+      if (!items.length) return '';
+      return `<div class="section-divider"><div class="section-divider-label">${label} &middot; ${items.length}</div></div>
+        <div class="images-grid" style="padding-top:16px">${items.map(({ img, idx }) => imageCardHTML(img, idx)).join('')}</div>`;
+    }).join('');
+  } else {
+    // Single filtered section
+    grid.innerHTML = `<div class="images-grid" style="padding-top:16px">${filtered.map(({ img, idx }) => imageCardHTML(img, idx)).join('')}</div>`;
+  }
+}
+
+function imageCardHTML(img, idx) {
+  const status = img.status || 'pending';
+  const comments = img.comments || [];
+  return `<div class="image-card ${status}" id="imgcard-${idx}">
+    <div class="img-wrap" onclick="openLightbox(${idx})">
+      <img src="${img.url}" loading="lazy" alt="Image ${idx+1}"/>
+      ${status !== 'pending' ? `<div class="img-status-badge ${status}">${status==='approved'?'✓ Approved':'✗ Rejected'}</div>` : ''}
+      <div class="img-num">${idx+1} / ${currentImages.length}</div>
+    </div>
+    <div class="img-actions">
+      <div class="img-action-row">
+        <button class="img-action-btn approve ${status==='approved'?'active':''}" onclick="setStatus(${idx},'approved')">✓ Approve</button>
+        <button class="img-action-btn reject ${status==='rejected'?'active':''}" onclick="setStatus(${idx},'rejected')">✗ Reject</button>
+        <button class="img-action-btn download" onclick="downloadImage('${img.url}',${idx+1})">↓</button>
+        ${status !== 'pending' ? `<button class="img-action-btn clear" onclick="clearStatus(${idx})" title="Clear selection">✕</button>` : ''}
       </div>
-      <div class="img-actions">
-        <div class="img-action-row">
-          <button class="img-action-btn approve ${status==='approved'?'active':''}" onclick="setStatus(${idx},'approved')">✓ Approve</button>
-          <button class="img-action-btn reject ${status==='rejected'?'active':''}" onclick="setStatus(${idx},'rejected')">✗ Reject</button>
-          <button class="img-action-btn download" onclick="downloadImage('${img.url}',${idx+1})">↓</button>
-          ${status !== 'pending' ? `<button class="img-action-btn clear" onclick="clearStatus(${idx})" title="Clear selection">✕</button>` : ''}
-        </div>
-        <textarea class="comment-area" id="comment-${idx}" placeholder="Add a comment…" rows="2"></textarea>
-        <button class="comment-send" onclick="sendComment(${idx})">Send comment</button>
-        ${comments.length ? `<div class="comments-list">${comments.map(c=>`<div class="comment-bubble"><div class="comment-who">${c.who}</div><div class="comment-text">${c.text}</div><div class="comment-time">${c.time}</div></div>`).join('')}</div>` : ''}
-      </div>
-    </div>`;
-  }).join('');
+      <textarea class="comment-area" id="comment-${idx}" placeholder="Add a comment…" rows="2"></textarea>
+      <button class="comment-send" onclick="sendComment(${idx})">Send comment</button>
+      ${comments.length ? `<div class="comments-list">${comments.map(c=>`<div class="comment-bubble"><div class="comment-who">${c.who}</div><div class="comment-text">${c.text}</div><div class="comment-time">${c.time}</div></div>`).join('')}</div>` : ''}
+    </div>
+  </div>`;
 }
 
 // ─── Patch a single card without touching any other images ───────────────────
+// Replaces the changed card's HTML in-place (no image reload), then re-renders
+// the full grid so sections stay correct.
 function patchImageCard(idx) {
   const card = document.getElementById(`imgcard-${idx}`);
-  if (!card) return;
-  const img = currentImages[idx];
-  const status = img.status || 'pending';
-  const comments = img.comments || [];
-
-  // Update card border class
-  card.className = `image-card ${status}`;
-
-  // Update status badge (inside img-wrap, before img-num)
-  const wrap = card.querySelector('.img-wrap');
-  const existingBadge = wrap.querySelector('.img-status-badge');
-  if (existingBadge) existingBadge.remove();
-  if (status !== 'pending') {
-    const badge = document.createElement('div');
-    badge.className = `img-status-badge ${status}`;
-    badge.textContent = status === 'approved' ? '✓ Approved' : '✗ Rejected';
-    wrap.insertBefore(badge, wrap.querySelector('.img-num'));
+  if (card) {
+    // Swap in updated HTML for just this card before re-render
+    // so the image src is already cached when renderImages runs
+    card.outerHTML = imageCardHTML(currentImages[idx], idx);
   }
-
-  // Update approve/reject button active states
-  card.querySelector('.img-action-btn.approve').classList.toggle('active', status === 'approved');
-  card.querySelector('.img-action-btn.reject').classList.toggle('active', status === 'rejected');
-
-  // Show/hide clear button
-  const row = card.querySelector('.img-action-row');
-  let clearBtn = row.querySelector('.img-action-btn.clear');
-  if (status !== 'pending') {
-    if (!clearBtn) {
-      clearBtn = document.createElement('button');
-      clearBtn.className = 'img-action-btn clear';
-      clearBtn.title = 'Clear selection';
-      clearBtn.textContent = '✕';
-      clearBtn.setAttribute('onclick', `clearStatus(${idx})`);
-      row.appendChild(clearBtn);
-    }
-  } else if (clearBtn) {
-    clearBtn.remove();
-  }
-
-  // Re-sort cards in the DOM: approved → pending → rejected
-  const grid = document.getElementById('images-grid');
-  const cards = Array.from(grid.querySelectorAll('.image-card'));
-  cards.sort((a, b) => {
-    const sa = STATUS_ORDER[a.classList[1] || 'pending'] ?? 1;
-    const sb = STATUS_ORDER[b.classList[1] || 'pending'] ?? 1;
-    return sa - sb;
-  });
-  cards.forEach(c => grid.appendChild(c));
-
-  // Update comments list
-  let commentsList = card.querySelector('.comments-list');
-  if (comments.length) {
-    const html = `<div class="comments-list">${comments.map(c =>
-      `<div class="comment-bubble"><div class="comment-who">${c.who}</div><div class="comment-text">${c.text}</div><div class="comment-time">${c.time}</div></div>`
-    ).join('')}</div>`;
-    if (commentsList) {
-      commentsList.outerHTML = html;
-    } else {
-      card.querySelector('.img-actions').insertAdjacentHTML('beforeend', html);
-    }
-  } else if (commentsList) {
-    commentsList.remove();
-  }
+  updateTabCounts();
+  renderImages();
 }
 
 // ─── Status ──────────────────────────────────────────────────────────────────
