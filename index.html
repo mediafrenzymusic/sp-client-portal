@@ -514,13 +514,55 @@ function renderImages() {
   }).join('');
 }
 
+// ─── Patch a single card without touching any other images ───────────────────
+function patchImageCard(idx) {
+  const card = document.getElementById(`imgcard-${idx}`);
+  if (!card) return;
+  const img = currentImages[idx];
+  const status = img.status || 'pending';
+  const comments = img.comments || [];
+
+  // Update card border class
+  card.className = `image-card ${status}`;
+
+  // Update status badge (inside img-wrap, before img-num)
+  const wrap = card.querySelector('.img-wrap');
+  const existingBadge = wrap.querySelector('.img-status-badge');
+  if (existingBadge) existingBadge.remove();
+  if (status !== 'pending') {
+    const badge = document.createElement('div');
+    badge.className = `img-status-badge ${status}`;
+    badge.textContent = status === 'approved' ? '✓ Approved' : '✗ Rejected';
+    wrap.insertBefore(badge, wrap.querySelector('.img-num'));
+  }
+
+  // Update approve/reject button active states
+  card.querySelector('.img-action-btn.approve').classList.toggle('active', status === 'approved');
+  card.querySelector('.img-action-btn.reject').classList.toggle('active', status === 'rejected');
+
+  // Update comments list
+  let commentsList = card.querySelector('.comments-list');
+  if (comments.length) {
+    const html = `<div class="comments-list">${comments.map(c =>
+      `<div class="comment-bubble"><div class="comment-who">${c.who}</div><div class="comment-text">${c.text}</div><div class="comment-time">${c.time}</div></div>`
+    ).join('')}</div>`;
+    if (commentsList) {
+      commentsList.outerHTML = html;
+    } else {
+      card.querySelector('.img-actions').insertAdjacentHTML('beforeend', html);
+    }
+  } else if (commentsList) {
+    commentsList.remove();
+  }
+}
+
 // ─── Status ──────────────────────────────────────────────────────────────────
 window.setStatus = async (idx, status) => {
   if (!currentGallery) return;
   currentImages[idx].status = status;
-  await saveImages();
-  renderImages();
+  patchImageCard(idx);   // update just this card — no image reloads
   updateProgress();
+  await saveImages();
   if (currentUser) notifyAdmin('status', idx, status);
   showToast(status === 'approved' ? '✓ Image approved' : '✗ Image rejected');
 };
@@ -534,9 +576,9 @@ window.sendComment = async (idx) => {
   const comment = { who, text, time: new Date().toLocaleString('en-GB') };
   if (!currentImages[idx].comments) currentImages[idx].comments = [];
   currentImages[idx].comments.push(comment);
-  await saveImages();
   el.value = '';
-  renderImages();
+  patchImageCard(idx);   // update just this card — no image reloads
+  await saveImages();
   if (currentUser) notifyAdmin('comment', idx, text);
   showToast('💬 Comment sent');
 };
