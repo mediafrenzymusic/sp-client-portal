@@ -615,14 +615,25 @@ function updateProgress() {
 }
 
 // ─── Download ─────────────────────────────────────────────────────────────────
-window.downloadImage = (url, num) => {
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `${currentGallery ? currentGallery.name.replace(/\s/g,'_') : 'image'}_${num}.jpg`;
-  a.target = '_blank';
-  a.click();
-  notifyAdmin('download', num - 1, url);
-  showToast('↓ Downloading image ' + num);
+window.downloadImage = async (url, num) => {
+  showToast('↓ Preparing image ' + num + '…');
+  try {
+    const response = await fetch(url);
+    const blob = await response.blob();
+    const ext = blob.type.includes('png') ? 'png' : blob.type.includes('webp') ? 'webp' : 'jpg';
+    const objectUrl = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = objectUrl;
+    a.download = `${currentGallery ? currentGallery.name.replace(/[^a-z0-9]/gi,'_') : 'image'}_${String(num).padStart(3,'0')}.${ext}`;
+    a.click();
+    URL.revokeObjectURL(objectUrl);
+    if (currentUser) notifyAdmin('download', num - 1, url);
+    showToast('✓ Image ' + num + ' downloaded');
+  } catch(e) {
+    // CORS fallback — open directly
+    window.open(url, '_blank');
+    showToast('↓ Opened image ' + num + ' in new tab');
+  }
 };
 
 window.downloadAll = () => {
