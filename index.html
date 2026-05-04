@@ -584,17 +584,61 @@ function imageCardHTML(img, idx) {
 }
 
 // ─── Patch a single card without touching any other images ───────────────────
-// Replaces the changed card's HTML in-place (no image reload), then re-renders
-// the full grid so sections stay correct.
 function patchImageCard(idx) {
   const card = document.getElementById(`imgcard-${idx}`);
-  if (card) {
-    // Swap in updated HTML for just this card before re-render
-    // so the image src is already cached when renderImages runs
-    card.outerHTML = imageCardHTML(currentImages[idx], idx);
+  if (!card) { renderImages(); return; }
+  const img = currentImages[idx];
+  const status = img.status || 'pending';
+  const comments = img.comments || [];
+
+  // Update card border class
+  card.className = `image-card ${status}`;
+
+  // Update status badge
+  const wrap = card.querySelector('.img-wrap');
+  const existingBadge = wrap.querySelector('.img-status-badge');
+  if (existingBadge) existingBadge.remove();
+  if (status !== 'pending') {
+    const badge = document.createElement('div');
+    badge.className = `img-status-badge ${status}`;
+    badge.textContent = status === 'approved' ? '✓ Approved' : '✗ Rejected';
+    wrap.insertBefore(badge, wrap.querySelector('.img-num'));
   }
+
+  // Update button active states
+  card.querySelector('.img-action-btn.approve').classList.toggle('active', status === 'approved');
+  card.querySelector('.img-action-btn.reject').classList.toggle('active', status === 'rejected');
+
+  // Show/hide clear button
+  const row = card.querySelector('.img-action-row');
+  let clearBtn = row.querySelector('.img-action-btn.clear');
+  if (status !== 'pending') {
+    if (!clearBtn) {
+      clearBtn = document.createElement('button');
+      clearBtn.className = 'img-action-btn clear';
+      clearBtn.title = 'Clear selection';
+      clearBtn.textContent = '✕';
+      clearBtn.setAttribute('onclick', `clearStatus(${idx})`);
+      row.appendChild(clearBtn);
+    }
+  } else if (clearBtn) {
+    clearBtn.remove();
+  }
+
+  // Update comments list
+  let commentsList = card.querySelector('.comments-list');
+  if (comments.length) {
+    const html = `<div class="comments-list">${comments.map(c =>
+      `<div class="comment-bubble"><div class="comment-who">${c.who}</div><div class="comment-text">${c.text}</div><div class="comment-time">${c.time}</div></div>`
+    ).join('')}</div>`;
+    if (commentsList) commentsList.outerHTML = html;
+    else card.querySelector('.img-actions').insertAdjacentHTML('beforeend', html);
+  } else if (commentsList) {
+    commentsList.remove();
+  }
+
+  // Update tab counts only — no re-sort, no jumping
   updateTabCounts();
-  renderImages();
 }
 
 // ─── Status ──────────────────────────────────────────────────────────────────
