@@ -465,7 +465,7 @@ function renderGalleries(galleries) {
 window.openGallery = async (galleryId) => {
   const snap = await getDoc(doc(db, 'galleries', galleryId));
   if (!snap.exists()) { showToast('Gallery not found'); return; }
-  currentGallery = { id: snap.id, ...snap.data() };
+  currentGallery = { ...snap.data(), id: snap.id };
   currentImages = currentGallery.images || [];
   document.getElementById('gv-title').textContent = currentGallery.name;
   document.getElementById('gv-sub').textContent = (currentGallery.shootDate || '') + ' · ' + currentImages.length + ' images';
@@ -735,7 +735,7 @@ window.createGallery = async () => {
     }
     text.textContent = 'Creating gallery...';
     const images = imageUrls.map(url => ({ url, status: 'pending', comments: [] }));
-    await addDoc(collection(db, 'galleries'), { id: galleryId, name, clientEmail, shootDate, images, shareToken, createdAt: serverTimestamp() });
+    await addDoc(collection(db, 'galleries'), { name, clientEmail, shootDate, images, shareToken, createdAt: serverTimestamp() });
     document.getElementById('gal-name').value = '';
     document.getElementById('gal-client-email').value = '';
     document.getElementById('gal-date').value = '';
@@ -834,7 +834,7 @@ async function checkSharedLink() {
   // Hide admin controls
   document.getElementById('admin-badge').style.display = 'none';
 
-  currentGallery = { id: matched.id, ...matched.data() };
+  currentGallery = { ...matched.data(), id: matched.id };
   currentImages = currentGallery.images || [];
   document.getElementById('gv-title').textContent = currentGallery.name;
   document.getElementById('gv-sub').textContent = (currentGallery.shootDate || '') + ' · ' + currentImages.length + ' images';
