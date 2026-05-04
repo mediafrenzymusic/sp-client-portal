@@ -693,7 +693,7 @@ window.createGallery = async () => {
       const safeName = `${String(i + 1).padStart(4, '0')}_${file.name.replace(/[^a-z0-9.\-_]/gi, '_')}`;
       const storageRef = ref(storage, `galleries/${galleryId}/${safeName}`);
       text.textContent = `Uploading ${i + 1} of ${total}...`;
-      await uploadBytes(storageRef, file, { contentType: file.type });
+      await uploadBytesResumable(storageRef, file, { contentType: file.type });
       imageUrls[i] = await getDownloadURL(storageRef);
       uploaded++;
       const p = Math.round((uploaded / total) * 100);
