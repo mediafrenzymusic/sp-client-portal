@@ -127,6 +127,8 @@ html,body{min-height:100%;background:var(--black);font-family:'Onest',sans-serif
 .img-action-btn.reject:hover,.img-action-btn.reject.active{background:var(--red);color:#fff}
 .img-action-btn.download{background:var(--surface2);border-color:var(--border);color:var(--text2)}
 .img-action-btn.download:hover{border-color:var(--gold);color:var(--gold)}
+.img-action-btn.clear{background:var(--surface2);border-color:var(--border);color:var(--text3);flex:0 0 auto;padding:8px 10px}
+.img-action-btn.clear:hover{border-color:var(--red);color:var(--red);background:var(--red-light)}
 .comment-area{width:100%;font-family:'Onest',sans-serif;font-size:13px;color:var(--text);background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:8px 12px;outline:none;resize:none;min-height:56px}
 .comment-area:focus{border-color:var(--border2)}
 .comment-area::placeholder{color:var(--text3)}
@@ -505,6 +507,7 @@ function renderImages() {
           <button class="img-action-btn approve ${status==='approved'?'active':''}" onclick="setStatus(${idx},'approved')">✓ Approve</button>
           <button class="img-action-btn reject ${status==='rejected'?'active':''}" onclick="setStatus(${idx},'rejected')">✗ Reject</button>
           <button class="img-action-btn download" onclick="downloadImage('${img.url}',${idx+1})">↓</button>
+          ${status !== 'pending' ? `<button class="img-action-btn clear" onclick="clearStatus(${idx})" title="Clear selection">✕</button>` : ''}
         </div>
         <textarea class="comment-area" id="comment-${idx}" placeholder="Add a comment…" rows="2"></textarea>
         <button class="comment-send" onclick="sendComment(${idx})">Send comment</button>
@@ -540,6 +543,22 @@ function patchImageCard(idx) {
   card.querySelector('.img-action-btn.approve').classList.toggle('active', status === 'approved');
   card.querySelector('.img-action-btn.reject').classList.toggle('active', status === 'rejected');
 
+  // Show/hide clear button
+  const row = card.querySelector('.img-action-row');
+  let clearBtn = row.querySelector('.img-action-btn.clear');
+  if (status !== 'pending') {
+    if (!clearBtn) {
+      clearBtn = document.createElement('button');
+      clearBtn.className = 'img-action-btn clear';
+      clearBtn.title = 'Clear selection';
+      clearBtn.textContent = '✕';
+      clearBtn.setAttribute('onclick', `clearStatus(${idx})`);
+      row.appendChild(clearBtn);
+    }
+  } else if (clearBtn) {
+    clearBtn.remove();
+  }
+
   // Update comments list
   let commentsList = card.querySelector('.comments-list');
   if (comments.length) {
@@ -560,11 +579,20 @@ function patchImageCard(idx) {
 window.setStatus = async (idx, status) => {
   if (!currentGallery) return;
   currentImages[idx].status = status;
-  patchImageCard(idx);   // update just this card — no image reloads
+  patchImageCard(idx);
   updateProgress();
   await saveImages();
   if (currentUser) notifyAdmin('status', idx, status);
   showToast(status === 'approved' ? '✓ Image approved' : '✗ Image rejected');
+};
+
+window.clearStatus = async (idx) => {
+  if (!currentGallery) return;
+  currentImages[idx].status = 'pending';
+  patchImageCard(idx);
+  updateProgress();
+  await saveImages();
+  showToast('↺ Selection cleared');
 };
 
 // ─── Comment ─────────────────────────────────────────────────────────────────
