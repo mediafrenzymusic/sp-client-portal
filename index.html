@@ -155,6 +155,11 @@ html,body{min-height:100%;background:var(--black);font-family:'Onest',sans-serif
 .gallery-delete-btn:hover{border-color:var(--red);background:var(--red-light)}
 .btn-notify-client{font-size:11px;color:var(--gold);background:none;border:1px solid var(--border2);border-radius:6px;padding:4px 10px;cursor:pointer}
 .btn-notify-client:hover{background:rgba(239,186,107,0.1)}
+.btn-copy-link{font-size:11px;color:var(--text2);background:none;border:1px solid var(--border);border-radius:6px;padding:4px 10px;cursor:pointer}
+.btn-copy-link:hover{border-color:var(--border2);color:var(--gold)}
+/* ── Link access banner ── */
+.link-access-banner{background:var(--dark);border-bottom:1px solid var(--border2);padding:10px 24px;text-align:center;font-size:13px;color:var(--text3)}
+.link-access-banner strong{color:var(--gold)}
 /* ── Empty ── */
 .empty{text-align:center;padding:64px 24px;color:var(--text3)}
 .empty-icon{font-size:48px;margin-bottom:16px;opacity:.4}
@@ -202,6 +207,11 @@ html,body{min-height:100%;background:var(--black);font-family:'Onest',sans-serif
   <div class="spinner"></div>
 </div>
 
+<!-- Link access banner (shown when entering via shared link) -->
+<div id="link-banner" style="display:none" class="link-access-banner">
+  You're viewing <strong id="link-banner-name"></strong> via a shared link &mdash; no login required.
+</div>
+
 <!-- Auth -->
 <div id="auth-screen" style="display:none">
   <div class="auth-card">
@@ -246,6 +256,7 @@ html,body{min-height:100%;background:var(--black);font-family:'Onest',sans-serif
           <input class="admin-input" id="gal-client-email" placeholder="Client email (for notifications)"/>
           <input class="admin-input" id="gal-date" placeholder="Shoot date (e.g. 12 May 2026)"/>
           <input class="admin-input" id="gal-password" placeholder="Gallery password"/>
+          <input class="admin-input admin-input-full" id="gal-sharetoken" placeholder="Share link slug (optional — leave blank to auto-generate, e.g. folkingtons-wedding-2026)"/>
           <div class="image-input-group admin-input-full">
             <div class="upload-drop-zone" id="drop-zone" onclick="document.getElementById('file-input').click()">
               <div class="upload-icon">⬆</div>
@@ -377,6 +388,11 @@ document.getElementById('auth-email').addEventListener('keydown', e => { if(e.ke
 document.getElementById('auth-pass').addEventListener('keydown', e => { if(e.key==='Enter') window.doAuth(); });
 
 onAuthStateChanged(auth, async user => {
+  // Check for shared link first — if matched, skip login entirely
+  if (!user) {
+    const handled = await checkSharedLink();
+    if (handled) return;
+  }
   document.getElementById('loading').style.display = 'none';
   if (user) {
     currentUser = user;
@@ -437,6 +453,7 @@ function renderGalleries(galleries) {
         ${isAdmin ? `
           <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
             <button class="btn-notify-client" onclick="event.stopPropagation();notifyClient('${g.id}','${g.name}','${g.clientEmail}','${g.shootDate||''}')">✉ Notify client</button>
+            <button class="btn-copy-link" onclick="event.stopPropagation();copyGalleryLink('${g.id}','${g.shareToken||''}','${g.name}')">🔗 Copy link</button>
             <button class="gallery-delete-btn" style="margin-top:0" onclick="event.stopPropagation();deleteGallery('${g.id}')">Delete gallery</button>
           </div>` : ''}
       </div>
@@ -674,6 +691,12 @@ window.createGallery = async () => {
   if (!name || !clientEmail) return showToast('Please fill in client name and email.');
   if (!selectedFiles || !selectedFiles.length) return showToast('Please select at least one image to upload.');
 
+  // Generate or use custom share token
+  const customSlug = document.getElementById('gal-sharetoken').value.trim();
+  const shareToken = customSlug
+    ? customSlug.replace(/[^a-z0-9\-]/gi, '-').toLowerCase()
+    : name.replace(/[^a-z0-9]/gi, '-').toLowerCase() + '-' + Math.random().toString(36).slice(2, 8);
+
   const wrap = document.getElementById('upload-progress-wrap');
   const fill = document.getElementById('upload-prog-fill');
   const text = document.getElementById('upload-prog-text');
@@ -711,10 +734,11 @@ window.createGallery = async () => {
     }
     text.textContent = 'Creating gallery...';
     const images = imageUrls.map(url => ({ url, status: 'pending', comments: [] }));
-    await addDoc(collection(db, 'galleries'), { id: galleryId, name, clientEmail, shootDate, images, createdAt: serverTimestamp() });
+    await addDoc(collection(db, 'galleries'), { id: galleryId, name, clientEmail, shootDate, images, shareToken, createdAt: serverTimestamp() });
     document.getElementById('gal-name').value = '';
     document.getElementById('gal-client-email').value = '';
     document.getElementById('gal-date').value = '';
+    document.getElementById('gal-sharetoken').value = '';
     clearFiles();
     showToast(`Gallery created with ${images.length} images uploaded.`);
   } catch (err) {
@@ -733,6 +757,66 @@ window.deleteGallery = async (id) => {
   await deleteDoc(doc(db, 'galleries', id));
   showToast('Gallery deleted');
 };
+
+// ─── Copy shareable link ───────────────────────────────────────────────────────
+window.copyGalleryLink = async (docId, shareToken, galleryName) => {
+  // If no shareToken yet (old gallery), generate and save one
+  let token = shareToken;
+  if (!token) {
+    token = galleryName.replace(/[^a-z0-9]/gi, '-').toLowerCase() + '-' + Math.random().toString(36).slice(2, 8);
+    await updateDoc(doc(db, 'galleries', docId), { shareToken: token });
+    showToast('Share link generated — copying…');
+  }
+  const link = `${location.origin}${location.pathname}?g=${encodeURIComponent(token)}`;
+  try {
+    await navigator.clipboard.writeText(link);
+    showToast('🔗 Link copied! Share it with your client.');
+  } catch {
+    prompt('Copy this link:', link);
+  }
+};
+
+// ─── Shared link access (no login required) ───────────────────────────────────
+async function checkSharedLink() {
+  const params = new URLSearchParams(location.search);
+  const token = params.get('g');
+  if (!token) return false;
+
+  // Find gallery by shareToken
+  const q = query(collection(db, 'galleries'), orderBy('createdAt', 'desc'));
+  const snap = await getDocs(q);
+  const matched = snap.docs.find(d => d.data().shareToken === token);
+  if (!matched) {
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('auth-screen').style.display = 'flex';
+    document.getElementById('auth-err').textContent = 'This share link is invalid or has expired.';
+    return true; // handled
+  }
+
+  // Open gallery directly — no login
+  document.getElementById('loading').style.display = 'none';
+  document.getElementById('auth-screen').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+  document.getElementById('nav-user').textContent = 'Guest';
+
+  // Show banner
+  const banner = document.getElementById('link-banner');
+  document.getElementById('link-banner-name').textContent = matched.data().name;
+  banner.style.display = 'block';
+
+  // Hide admin controls
+  document.getElementById('admin-badge').style.display = 'none';
+
+  currentGallery = { id: matched.id, ...matched.data() };
+  currentImages = currentGallery.images || [];
+  document.getElementById('gv-title').textContent = currentGallery.name;
+  document.getElementById('gv-sub').textContent = (currentGallery.shootDate || '') + ' · ' + currentImages.length + ' images';
+  document.getElementById('gallery-list').style.display = 'none';
+  document.getElementById('gallery-view').style.display = 'block';
+  renderImages();
+  updateProgress();
+  return true; // handled — skip normal auth flow
+}
 
 // ─── Lightbox ─────────────────────────────────────────────────────────────────
 window.openLightbox = (idx) => {
