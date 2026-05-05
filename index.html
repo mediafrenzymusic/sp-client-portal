@@ -298,7 +298,8 @@ html,body{min-height:100%;background:var(--black);font-family:'Onest',sans-serif
       <div class="admin-card">
         <h3>Create New Gallery</h3>
         <div class="admin-grid">
-          <input class="admin-input" id="gal-name" placeholder="Client name (e.g. Folkington's Drinks)"/>
+          <input class="admin-input" id="gal-name" placeholder="Gallery name (e.g. Folkington's Spring Shoot)"/>
+          <input class="admin-input" id="gal-client-name" placeholder="Client name (e.g. Jane Smith)"/>
           <input class="admin-input" id="gal-client-email" placeholder="Client email (for notifications)"/>
           <input class="admin-input" id="gal-date" placeholder="Shoot date (e.g. 12 May 2026)"/>
           <input class="admin-input" id="gal-password" placeholder="Gallery password"/>
@@ -698,7 +699,9 @@ window.sendComment = async (idx) => {
   const el = document.getElementById(`comment-${idx}`);
   const text = el.value.trim();
   if (!text) return;
-  const who = currentUser ? currentUser.email : 'Guest';
+  const who = currentUser
+    ? (currentUser.displayName || currentUser.email)
+    : (document.getElementById('nav-user').textContent || 'Guest');
   const comment = { who, text, time: new Date().toLocaleString('en-GB') };
   if (!currentImages[idx].comments) currentImages[idx].comments = [];
   currentImages[idx].comments.push(comment);
@@ -906,6 +909,7 @@ dropZone.addEventListener('drop', ev => {
 // ─── Create gallery with upload ──────────────────────────────────────────────
 window.createGallery = async () => {
   const name = document.getElementById('gal-name').value.trim();
+  const clientName = document.getElementById('gal-client-name').value.trim();
   const clientEmail = document.getElementById('gal-client-email').value.trim();
   const shootDate = document.getElementById('gal-date').value.trim();
   if (!name || !clientEmail) return showToast('Please fill in client name and email.');
@@ -954,8 +958,9 @@ window.createGallery = async () => {
     }
     text.textContent = 'Creating gallery...';
     const images = imageUrls.map((url, i) => ({ url, filename: selectedFiles[i].name, status: 'pending', comments: [] }));
-    await addDoc(collection(db, 'galleries'), { name, clientEmail, shootDate, images, shareToken, createdAt: serverTimestamp() });
+    await addDoc(collection(db, 'galleries'), { name, clientName, clientEmail, shootDate, images, shareToken, createdAt: serverTimestamp() });
     document.getElementById('gal-name').value = '';
+    document.getElementById('gal-client-name').value = '';
     document.getElementById('gal-client-email').value = '';
     document.getElementById('gal-date').value = '';
     document.getElementById('gal-sharetoken').value = '';
@@ -1043,7 +1048,8 @@ async function checkSharedLink() {
   document.getElementById('loading').style.display = 'none';
   document.getElementById('auth-screen').style.display = 'none';
   document.getElementById('app').style.display = 'block';
-  document.getElementById('nav-user').textContent = 'Guest';
+  const clientDisplayName = matched.data().clientName || matched.data().name || 'Guest';
+  document.getElementById('nav-user').textContent = clientDisplayName;
 
   // Show banner
   const banner = document.getElementById('link-banner');
@@ -1084,7 +1090,7 @@ if (new URLSearchParams(location.search).has('g')) {
       isAdmin = user.email === ADMIN_EMAIL;
       document.getElementById('auth-screen').style.display = 'none';
       document.getElementById('app').style.display = 'block';
-      document.getElementById('nav-user').textContent = user.email;
+      document.getElementById('nav-user').textContent = user.displayName || user.email;
       if (isAdmin) {
         document.getElementById('admin-badge').style.display = 'inline';
         document.getElementById('admin-bar').style.display = 'none';
