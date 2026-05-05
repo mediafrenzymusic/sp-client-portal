@@ -1259,7 +1259,8 @@ document.getElementById('access-modal').addEventListener('click', e => {
   <div style="background:var(--surface1);border:1px solid var(--border);border-radius:16px;padding:32px;width:min(400px,90vw);text-align:center">
     <div style="font-size:32px;margin-bottom:12px">👋</div>
     <h3 style="margin:0 0 8px;font-size:18px;color:var(--text)">Welcome to your gallery</h3>
-    <p style="font-size:13px;color:var(--text3);margin:0 0 24px;line-height:1.6">So your comments and selections are saved under your name, please enter your name below.</p>
+    <p style="font-size:13px;color:var(--text3);margin:0 0 16px;line-height:1.6">So your comments and selections are saved under your name, please enter your name below.</p>
+    <p style="font-size:12px;color:var(--text3);background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin:0 0 20px;line-height:1.6;text-align:left">⚠️ <strong style="color:var(--text2)">Shared gallery notice:</strong> If this gallery has been shared with multiple viewers, please be aware that any comments or approvals you make will be visible to everyone with access.</p>
     <input id="name-prompt-input" class="admin-input" placeholder="Your name (e.g. Jane Smith)" style="width:100%;box-sizing:border-box;margin-bottom:16px;text-align:center;font-size:15px" onkeydown="if(event.key==='Enter')submitNamePrompt()"/>
     <button class="download-all-btn" style="width:100%;justify-content:center" onclick="submitNamePrompt()">Enter gallery →</button>
   </div>
