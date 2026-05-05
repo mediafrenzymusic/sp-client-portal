@@ -355,12 +355,12 @@ html,body{min-height:100%;background:var(--black);font-family:'Onest',sans-serif
         <button class="download-all-btn" onclick="downloadFilenameList()" id="dl-names-btn" style="background:var(--surface2);color:var(--text2);border:1px solid var(--border)" title="Download a text file listing all approved image filenames">↓ Download List of Approved Images</button>
       </div>
     </div>
+    <div style="max-width:1100px;margin:16px auto 0;padding:0 24px">
+      <p style="font-size:13px;color:var(--text3);line-height:1.6">Browse through your images below and use the <strong style="color:var(--text2)">Approve</strong> and <strong style="color:var(--text2)">Reject</strong> buttons to make your selections. Use the tabs to focus on a specific group, and download just your approved picks or the full set when you're ready.</p>
+    </div>
     <div class="gallery-progress">
       <div class="progress-bar"><div class="progress-fill" id="gv-progress" style="width:0%"></div></div>
       <div class="progress-meta"><span id="gv-prog-label">0 reviewed</span><span id="gv-prog-pct">0%</span></div>
-    </div>
-    <div style="max-width:1100px;margin:16px auto 0;padding:0 24px">
-      <p style="font-size:13px;color:var(--text3);line-height:1.6">Browse through your images below and use the <strong style="color:var(--text2)">Approve</strong> and <strong style="color:var(--text2)">Reject</strong> buttons to make your selections. Use the tabs to focus on a specific group, and download just your approved picks or the full set when you're ready.</p>
     </div>
     <div class="filter-tabs" id="filter-tabs">
       <button class="filter-tab active" onclick="setFilter('all')" id="tab-all">All <span class="tab-count" id="tab-count-all"></span></button>
