@@ -454,7 +454,10 @@ function loadGalleries() {
   const q = query(collection(db, 'galleries'), orderBy('createdAt', 'desc'));
   galleriesUnsub = onSnapshot(q, snap => {
     const galleries = snap.docs.map(d => ({ ...d.data(), id: d.id }));
-    const visible = isAdmin ? galleries : galleries.filter(g => g.clientEmail === currentUser.email);
+    const visible = isAdmin ? galleries : galleries.filter(g => {
+      const extra = g.accessEmails || [];
+      return g.clientEmail === currentUser.email || extra.includes(currentUser.email);
+    });
     renderGalleries(visible);
   });
 }
@@ -486,6 +489,7 @@ function renderGalleries(galleries) {
           <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
             <button class="btn-notify-client" onclick="event.stopPropagation();notifyClient('${g.id}','${g.name}','${g.clientEmail}','${g.shootDate||''}')">✉ Notify client</button>
             <button class="btn-copy-link" onclick="event.stopPropagation();copyGalleryLink('${g.id}','${g.shareToken||''}','${g.name}')">🔗 Copy link</button>
+            <button class="btn-notify-client" onclick="event.stopPropagation();manageAccess('${g.id}','${g.name}','${g.clientEmail}',${JSON.stringify(g.accessEmails||[])})">👥 Manage access</button>
             <button class="gallery-delete-btn" style="margin-top:0" onclick="event.stopPropagation();deleteGallery('${g.id}')">Delete gallery</button>
           </div>` : ''}
       </div>
@@ -1135,6 +1139,88 @@ window.showToast = (msg) => {
   t.classList.add('show');
   setTimeout(() => t.classList.remove('show'), 3000);
 };
+
+
+// ─── Manage gallery access ────────────────────────────────────────────────────
+let _accessGalleryId = null;
+let _accessEmails = [];
+let _accessPrimaryEmail = '';
+
+window.manageAccess = (galleryId, galleryName, primaryEmail, accessEmails) => {
+  _accessGalleryId = galleryId;
+  _accessPrimaryEmail = primaryEmail;
+  _accessEmails = Array.isArray(accessEmails) ? [...accessEmails] : [];
+  document.getElementById('access-modal-title').textContent = 'Manage access — ' + galleryName;
+  document.getElementById('access-modal-sub').textContent = 'Primary: ' + (primaryEmail || '—');
+  renderAccessList();
+  document.getElementById('access-modal').style.display = 'flex';
+};
+
+function renderAccessList() {
+  const list = document.getElementById('access-list');
+  if (!_accessEmails.length) {
+    list.innerHTML = '<p style="font-size:12px;color:var(--text3);margin:0">No additional users yet.</p>';
+    return;
+  }
+  list.innerHTML = _accessEmails.map((email, i) => `
+    <div style="display:flex;align-items:center;gap:8px;background:var(--surface2);border-radius:8px;padding:8px 12px">
+      <span style="flex:1;font-size:13px;color:var(--text)">${email}</span>
+      <button onclick="removeAccessEmail(${i})" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:16px;padding:0;line-height:1" title="Remove">✕</button>
+    </div>
+  `).join('');
+}
+
+window.addAccessEmail = () => {
+  const input = document.getElementById('access-new-email');
+  const email = input.value.trim().toLowerCase();
+  if (!email || !email.includes('@')) return showToast('Please enter a valid email address.');
+  if (email === _accessPrimaryEmail.toLowerCase()) return showToast('That is already the primary client email.');
+  if (_accessEmails.map(e => e.toLowerCase()).includes(email)) return showToast('That email is already added.');
+  _accessEmails.push(email);
+  input.value = '';
+  renderAccessList();
+};
+
+window.removeAccessEmail = (index) => {
+  _accessEmails.splice(index, 1);
+  renderAccessList();
+};
+
+window.saveAccessEmails = async () => {
+  if (!_accessGalleryId) return;
+  await updateDoc(doc(db, 'galleries', _accessGalleryId), { accessEmails: _accessEmails });
+  showToast('Access updated.');
+  closeAccessModal();
+};
+
+window.closeAccessModal = () => {
+  document.getElementById('access-modal').style.display = 'none';
+  _accessGalleryId = null;
+  _accessEmails = [];
+};
+
+// Close modal on backdrop click
+document.getElementById('access-modal').addEventListener('click', e => {
+  if (e.target === document.getElementById('access-modal')) closeAccessModal();
+});
+
 </script>
+
+<!-- Access management modal -->
+<div id="access-modal" style="display:none;position:fixed;inset:0;z-index:200;background:rgba(0,0,0,0.7);align-items:center;justify-content:center">
+  <div style="background:var(--surface1);border:1px solid var(--border);border-radius:16px;padding:28px;width:min(480px,92vw);max-height:90vh;overflow-y:auto">
+    <h3 style="margin:0 0 4px;font-size:16px" id="access-modal-title">Manage access</h3>
+    <p style="font-size:12px;color:var(--text3);margin:0 0 20px" id="access-modal-sub"></p>
+    <div id="access-list" style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px"></div>
+    <div style="display:flex;gap:8px">
+      <input id="access-new-email" class="admin-input" placeholder="Add email address" style="flex:1;margin:0" onkeydown="if(event.key==='Enter')addAccessEmail()"/>
+      <button class="download-all-btn" style="flex-shrink:0;padding:0 16px" onclick="addAccessEmail()">Add</button>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:16px;justify-content:flex-end">
+      <button class="download-all-btn" style="background:var(--surface2);color:var(--text2);border:1px solid var(--border)" onclick="closeAccessModal()">Cancel</button>
+      <button class="download-all-btn" onclick="saveAccessEmails()">Save</button>
+    </div>
+  </div>
+</div>
 </body>
 </html>
