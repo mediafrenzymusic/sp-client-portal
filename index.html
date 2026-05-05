@@ -1048,33 +1048,64 @@ async function checkSharedLink() {
     return true; // handled
   }
 
-  // Open gallery directly — no login
-  document.getElementById('loading').style.display = 'none';
-  document.getElementById('auth-screen').style.display = 'none';
-  document.getElementById('app').style.display = 'block';
-  const clientDisplayName = matched.data().clientName || matched.data().name || 'Guest';
-  document.getElementById('nav-user').textContent = clientDisplayName;
+  // Store gallery data for use after name prompt
+  const galleryData = matched.data();
+  const galleryId = matched.id;
 
-  // Show banner
-  const banner = document.getElementById('link-banner');
-  document.getElementById('link-banner-name').textContent = matched.data().name;
-  banner.style.display = 'block';
+  // Check if we already know this visitor's name (stored per share token)
+  const storedName = localStorage.getItem('visitor-name-' + token);
 
-  // Hide admin controls and back button — guest has only this one gallery
-  document.getElementById('admin-badge').style.display = 'none';
-  document.getElementById('admin-create-wrap').style.display = 'none';
-  document.getElementById('sign-out-btn').style.display = 'none';
-  const backBtn = document.querySelector('.back-btn');
-  if (backBtn) backBtn.style.display = 'none';
+  function openSharedGallery(visitorName) {
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('auth-screen').style.display = 'none';
+    document.getElementById('name-prompt-modal').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+    document.getElementById('nav-user').textContent = visitorName;
 
-  currentGallery = { ...matched.data(), id: matched.id };
-  currentImages = currentGallery.images || [];
-  document.getElementById('gv-title').textContent = currentGallery.name;
-  document.getElementById('gv-sub').textContent = (currentGallery.shootDate || '') + ' · ' + currentImages.length + ' images';
-  document.getElementById('gallery-list').style.display = 'none';
-  document.getElementById('gallery-view').style.display = 'block';
-  renderImages();
-  updateProgress();
+    // Show banner
+    const banner = document.getElementById('link-banner');
+    document.getElementById('link-banner-name').textContent = galleryData.name;
+    banner.style.display = 'block';
+
+    // Hide admin controls and back button
+    document.getElementById('admin-badge').style.display = 'none';
+    document.getElementById('admin-create-wrap').style.display = 'none';
+    document.getElementById('sign-out-btn').style.display = 'none';
+    const backBtn = document.querySelector('.back-btn');
+    if (backBtn) backBtn.style.display = 'none';
+
+    currentGallery = { ...galleryData, id: galleryId };
+    currentImages = currentGallery.images || [];
+    document.getElementById('gv-title').textContent = currentGallery.name;
+    document.getElementById('gv-sub').textContent = (currentGallery.shootDate || '') + ' · ' + currentImages.length + ' images';
+    document.getElementById('gallery-list').style.display = 'none';
+    document.getElementById('gallery-view').style.display = 'block';
+    renderImages();
+    updateProgress();
+  }
+
+  window.submitNamePrompt = () => {
+    const name = document.getElementById('name-prompt-input').value.trim();
+    if (!name) {
+      document.getElementById('name-prompt-input').style.borderColor = 'var(--gold)';
+      document.getElementById('name-prompt-input').focus();
+      return;
+    }
+    localStorage.setItem('visitor-name-' + token, name);
+    openSharedGallery(name);
+  };
+
+  if (storedName) {
+    // Returning visitor — skip the prompt
+    openSharedGallery(storedName);
+  } else {
+    // First visit — show the name prompt, set up the app in the background
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('auth-screen').style.display = 'none';
+    document.getElementById('name-prompt-modal').style.display = 'flex';
+    setTimeout(() => document.getElementById('name-prompt-input').focus(), 100);
+  }
+
   return true; // handled — skip normal auth flow
 }
 
@@ -1220,6 +1251,17 @@ document.getElementById('access-modal').addEventListener('click', e => {
       <button class="download-all-btn" style="background:var(--surface2);color:var(--text2);border:1px solid var(--border)" onclick="closeAccessModal()">Cancel</button>
       <button class="download-all-btn" onclick="saveAccessEmails()">Save</button>
     </div>
+  </div>
+</div>
+
+<!-- Who are you? modal -->
+<div id="name-prompt-modal" style="display:none;position:fixed;inset:0;z-index:300;background:rgba(0,0,0,0.75);align-items:center;justify-content:center">
+  <div style="background:var(--surface1);border:1px solid var(--border);border-radius:16px;padding:32px;width:min(400px,90vw);text-align:center">
+    <div style="font-size:32px;margin-bottom:12px">👋</div>
+    <h3 style="margin:0 0 8px;font-size:18px;color:var(--text)">Welcome to your gallery</h3>
+    <p style="font-size:13px;color:var(--text3);margin:0 0 24px;line-height:1.6">So your comments and selections are saved under your name, please enter your name below.</p>
+    <input id="name-prompt-input" class="admin-input" placeholder="Your name (e.g. Jane Smith)" style="width:100%;box-sizing:border-box;margin-bottom:16px;text-align:center;font-size:15px" onkeydown="if(event.key==='Enter')submitNamePrompt()"/>
+    <button class="download-all-btn" style="width:100%;justify-content:center" onclick="submitNamePrompt()">Enter gallery →</button>
   </div>
 </div>
 </body>
