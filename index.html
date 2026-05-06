@@ -528,6 +528,10 @@ function subscribeToGallery(galleryId) {
   galleryUnsub = onSnapshot(doc(db, 'galleries', galleryId), snap => {
     if (!snap.exists()) return;
     const fresh = snap.data();
+    // Only update if data actually changed (avoid re-render on our own writes)
+    const freshJSON = JSON.stringify(fresh.images);
+    const currentJSON = JSON.stringify(currentImages);
+    if (freshJSON === currentJSON) return;
     currentGallery = { ...fresh, id: galleryId };
     currentImages = fresh.images || [];
     renderImages();
