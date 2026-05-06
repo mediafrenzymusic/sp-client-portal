@@ -416,6 +416,7 @@ let currentGallery = null;
 let currentImages = [];
 let lbIndex = 0;
 let galleriesUnsub = null;
+let galleryUnsub = null; // real-time listener for open gallery
 
 
 
@@ -510,6 +511,7 @@ window.openGallery = async (galleryId) => {
   document.getElementById('gallery-view').style.display = 'block';
   setFilter('all');
   updateProgress();
+  subscribeToGallery(galleryId);
 };
 
 window.showGalleryList = () => {
@@ -517,7 +519,25 @@ window.showGalleryList = () => {
   document.getElementById('gallery-list').style.display = 'block';
   currentGallery = null;
   currentImages = [];
+  if (galleryUnsub) { galleryUnsub(); galleryUnsub = null; }
 };
+
+// ─── Real-time gallery listener ───────────────────────────────────────────────
+function subscribeToGallery(galleryId) {
+  if (galleryUnsub) { galleryUnsub(); galleryUnsub = null; }
+  galleryUnsub = onSnapshot(doc(db, 'galleries', galleryId), snap => {
+    if (!snap.exists()) return;
+    const fresh = snap.data();
+    // Only update if data actually changed (avoid re-render on our own writes)
+    const freshJSON = JSON.stringify(fresh.images);
+    const currentJSON = JSON.stringify(currentImages);
+    if (freshJSON === currentJSON) return;
+    currentGallery = { ...fresh, id: galleryId };
+    currentImages = fresh.images || [];
+    renderImages();
+    updateProgress();
+  });
+}
 
 // ─── Render images ────────────────────────────────────────────────────────────
 const STATUS_ORDER = { approved: 0, pending: 1, rejected: 2 };
@@ -1082,6 +1102,7 @@ async function checkSharedLink() {
     document.getElementById('gallery-view').style.display = 'block';
     renderImages();
     updateProgress();
+    subscribeToGallery(galleryId);
   }
 
   window.submitNamePrompt = () => {
