@@ -653,6 +653,7 @@ function imageCardHTML(img, idx) {
         <button class="img-action-btn reject ${status==='rejected'?'active':''}" onclick="setStatus(${idx},'rejected')">✗ Reject</button>
         <button class="img-action-btn download" onclick="downloadImage('${img.url}',${idx+1})">↓</button>
         ${status !== 'pending' ? `<button class="img-action-btn clear" onclick="clearStatus(${idx})" title="Clear selection">✕</button>` : ''}
+        ${isAdmin ? `<button class="img-action-btn" onclick="deleteImage(${idx})" title="Delete image" style="flex:0 0 auto;padding:8px 10px;background:var(--red-light);border-color:var(--red);color:var(--red)">🗑</button>` : ''}
       </div>
       <textarea class="comment-area" id="comment-${idx}" placeholder="Add a comment…" rows="2"></textarea>
       <button class="comment-send" onclick="sendComment(${idx})">Send comment</button>
@@ -701,6 +702,20 @@ function patchImageCard(idx) {
     }
   } else if (clearBtn) {
     clearBtn.remove();
+  }
+
+  // Show/hide admin delete image button
+  let deleteImgBtn = row.querySelector('.img-delete-btn');
+  if (isAdmin) {
+    if (!deleteImgBtn) {
+      deleteImgBtn = document.createElement('button');
+      deleteImgBtn.className = 'img-action-btn img-delete-btn';
+      deleteImgBtn.title = 'Delete image';
+      deleteImgBtn.textContent = '🗑';
+      deleteImgBtn.style.cssText = 'flex:0 0 auto;padding:8px 10px;background:var(--red-light);border-color:var(--red);color:var(--red)';
+      deleteImgBtn.setAttribute('onclick', `deleteImage(${idx})`);
+      row.appendChild(deleteImgBtn);
+    }
   }
 
   // Update comments list
@@ -772,6 +787,18 @@ window.deleteComment = async (idx, commentIdx) => {
   patchImageCard(idx);
   await saveImages();
   showToast('Comment deleted');
+};
+
+window.deleteImage = async (idx) => {
+  if (!isAdmin) return;
+  const img = currentImages[idx];
+  const label = img.filename || ('Image ' + (idx + 1));
+  if (!confirm('Permanently delete ' + label + '? This cannot be undone.')) return;
+  currentImages.splice(idx, 1);
+  renderImages();
+  updateProgress();
+  await saveImages();
+  showToast('🗑 Image deleted');
 };
 
 // ─── Save images ──────────────────────────────────────────────────────────────
