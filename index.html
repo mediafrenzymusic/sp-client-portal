@@ -539,17 +539,41 @@ window.showGalleryList = () => {
 // ─── Real-time gallery listener ───────────────────────────────────────────────
 function subscribeToGallery(galleryId) {
   if (galleryUnsub) { galleryUnsub(); galleryUnsub = null; }
-  galleryUnsub = onSnapshot(doc(db, 'galleries', galleryId), snap => {
+  galleryUnsub = onSnapshot(doc(db, 'galleries', galleryId), { includeMetadataChanges: false }, snap => {
     if (!snap.exists()) return;
     const fresh = snap.data();
-    // Only update if data actually changed (avoid re-render on our own writes)
-    const freshJSON = JSON.stringify(fresh.images);
-    const currentJSON = JSON.stringify(currentImages);
-    if (freshJSON === currentJSON) return;
+    const freshImages = fresh.images || [];
+    const prevLen = currentImages.length;
+
+    // Find which indices actually changed
+    const maxLen = Math.max(freshImages.length, prevLen);
+    const changedIndices = [];
+    for (let i = 0; i < maxLen; i++) {
+      if (JSON.stringify(freshImages[i]) !== JSON.stringify(currentImages[i])) {
+        changedIndices.push(i);
+      }
+    }
+
+    if (!changedIndices.length) return; // nothing changed
+
     currentGallery = { ...fresh, id: galleryId };
-    currentImages = fresh.images || [];
-    renderImages();
+    currentImages = freshImages;
+
+    // If image count changed (upload/delete) or many changes at once — full re-render
+    if (freshImages.length !== prevLen || changedIndices.length > 10) {
+      renderImages();
+      updateProgress();
+      return;
+    }
+
+    // Otherwise patch only the changed cards in-place — no scroll jump, near-instant
+    changedIndices.forEach(i => {
+      if (document.getElementById('imgcard-' + i)) {
+        patchImageCard(i);
+      }
+    });
     updateProgress();
+    updateTabCounts();
   });
 }
 
