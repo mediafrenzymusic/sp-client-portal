@@ -219,6 +219,8 @@ html,body{min-height:100%;background:var(--black);font-family:'Onest',sans-serif
 .filter-tab.active-approved{background:var(--green);border-color:var(--green);color:#fff}
 .filter-tab.active-rejected{background:var(--red);border-color:var(--red);color:#fff}
 .filter-tab .tab-count{font-size:11px;opacity:.75}
+#sort-select:hover{border-color:var(--border2);color:var(--gold)}
+#sort-select option{background:var(--surface);color:var(--text)}
 .section-divider{max-width:1100px;margin:24px auto 0;padding:0 24px}
 .section-divider-label{font-size:11px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:.1em;padding-bottom:12px;border-bottom:1px solid var(--border);margin-bottom:0}
 
@@ -361,6 +363,13 @@ html,body{min-height:100%;background:var(--black);font-family:'Onest',sans-serif
       <button class="filter-tab" onclick="setFilter('approved')" id="tab-approved">✓ Approved <span class="tab-count" id="tab-count-approved"></span></button>
       <button class="filter-tab" onclick="setFilter('pending')" id="tab-pending">Pending <span class="tab-count" id="tab-count-pending"></span></button>
       <button class="filter-tab" onclick="setFilter('rejected')" id="tab-rejected">✗ Rejected <span class="tab-count" id="tab-count-rejected"></span></button>
+      <select id="sort-select" onchange="setSort(this.value)" style="margin-left:auto;font-family:'Onest',sans-serif;font-size:12px;color:var(--text2);background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:6px 10px;cursor:pointer;outline:none;flex-shrink:0">
+        <option value="original">↕ Original order</option>
+        <option value="filename_az">↕ Filename A→Z</option>
+        <option value="filename_za">↕ Filename Z→A</option>
+        <option value="date_newest">↕ Newest first</option>
+        <option value="date_oldest">↕ Oldest first</option>
+      </select>
     </div>
     <div class="gallery-progress">
       <div class="progress-bar"><div class="progress-fill" id="gv-progress" style="width:0%"></div></div>
@@ -506,6 +515,8 @@ window.openGallery = async (galleryId) => {
   currentGallery = { ...snap.data(), id: snap.id };
   currentImages = currentGallery.images || [];
   currentFilter = 'all';
+  currentSort = 'original';
+  document.getElementById('sort-select').value = 'original';
   document.getElementById('gv-title').textContent = currentGallery.name;
   document.getElementById('gv-sub').textContent = (currentGallery.shootDate || '') + ' · ' + currentImages.length + ' images';
   document.getElementById('gallery-list').style.display = 'none';
@@ -545,6 +556,28 @@ function subscribeToGallery(galleryId) {
 // ─── Render images ────────────────────────────────────────────────────────────
 const STATUS_ORDER = { approved: 0, pending: 1, rejected: 2 };
 let currentFilter = 'all';
+let currentSort = 'original';
+
+window.setSort = (sort) => {
+  currentSort = sort;
+  renderImages();
+};
+
+function applySortToFiltered(filtered) {
+  if (currentSort === 'original') return filtered;
+  const copy = [...filtered];
+  if (currentSort === 'filename_az') {
+    copy.sort((a, b) => (a.img.filename || '').localeCompare(b.img.filename || ''));
+  } else if (currentSort === 'filename_za') {
+    copy.sort((a, b) => (b.img.filename || '').localeCompare(a.img.filename || ''));
+  } else if (currentSort === 'date_newest') {
+    // Use original index as proxy for upload order (higher index = newer)
+    copy.sort((a, b) => b.idx - a.idx);
+  } else if (currentSort === 'date_oldest') {
+    copy.sort((a, b) => a.idx - b.idx);
+  }
+  return copy;
+}
 
 window.setFilter = (filter) => {
   currentFilter = filter;
@@ -605,17 +638,17 @@ function renderImages() {
       { key: 'pending',  label: 'Pending' },
       { key: 'rejected', label: '✗ Rejected' },
     ];
+    const sorted = applySortToFiltered(filtered);
     grid.innerHTML = sections.map(({ key, label }) => {
-      const items = currentImages
-        .map((img, idx) => ({ img, idx }))
-        .filter(({ img }) => (img.status || 'pending') === key);
+      const items = sorted.filter(({ img }) => (img.status || 'pending') === key);
       if (!items.length) return '';
       return `<div class="section-divider"><div class="section-divider-label">${label} &middot; ${items.length}</div></div>
         <div class="images-grid" style="padding-top:16px">${items.map(({ img, idx }) => imageCardHTML(img, idx)).join('')}</div>`;
     }).join('');
   } else {
     // Single filtered section
-    grid.innerHTML = `<div class="images-grid" style="padding-top:16px">${filtered.map(({ img, idx }) => imageCardHTML(img, idx)).join('')}</div>`;
+    const sorted = applySortToFiltered(filtered);
+    grid.innerHTML = `<div class="images-grid" style="padding-top:16px">${sorted.map(({ img, idx }) => imageCardHTML(img, idx)).join('')}</div>`;
   }
 }
 
