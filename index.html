@@ -635,7 +635,6 @@ function imageCardHTML(img, idx) {
       </div>
       <textarea class="comment-area" id="comment-${idx}" placeholder="Add a comment…" rows="2"></textarea>
       <button class="comment-send" onclick="sendComment(${idx})">Send comment</button>
-      ${comments.length ? `<button class="comment-send" style="color:var(--red);border-color:var(--red);margin-top:4px" onclick="clearComments(${idx})">Clear all comments</button>` : ''}
       ${comments.length ? `<div class="comments-list">${comments.map(c=>`<div class="comment-bubble"><div class="comment-who">${c.who}</div><div class="comment-text">${c.text}</div><div class="comment-time">${c.time}</div></div>`).join('')}</div>` : ''}
     </div>
   </div>`;
@@ -717,15 +716,6 @@ window.clearStatus = async (idx) => {
   updateProgress();
   await saveImages();
   showToast('↺ Selection cleared');
-};
-
-
-window.clearComments = async (idx) => {
-  if (!confirm('Clear all comments on this image?')) return;
-  currentImages[idx].comments = [];
-  patchImageCard(idx);
-  await saveImages();
-  showToast('Comments cleared');
 };
 
 // ─── Comment ─────────────────────────────────────────────────────────────────
