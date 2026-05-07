@@ -370,6 +370,7 @@ html,body{min-height:100%;background:var(--black);font-family:'Onest',sans-serif
       <button class="download-all-btn" onclick="downloadZip('approved')" id="dl-approved-btn">↓ Download Approved as ZIP</button>
       <button class="download-all-btn" onclick="downloadZip('all')" id="dl-all-btn" style="background:var(--surface2);color:var(--text2);border:1px solid var(--border)">↓ Download All as ZIP</button>
       <button class="download-all-btn" onclick="downloadFilenameList()" id="dl-names-btn" style="background:var(--surface2);color:var(--text2);border:1px solid var(--border)" title="Download a text file listing all approved image filenames">↓ Download List of Approved Images</button>
+      <button class="download-all-btn" onclick="openUploadMoreModal()" id="upload-more-btn" style="display:none;background:var(--surface2);color:var(--gold);border:1px solid var(--border2)">⬆ Upload More Images</button>
     </div>
     <div id="images-grid"></div>
   </div>
@@ -509,6 +510,7 @@ window.openGallery = async (galleryId) => {
   document.getElementById('gv-sub').textContent = (currentGallery.shootDate || '') + ' · ' + currentImages.length + ' images';
   document.getElementById('gallery-list').style.display = 'none';
   document.getElementById('gallery-view').style.display = 'block';
+  if (isAdmin) document.getElementById('upload-more-btn').style.display = '';
   setFilter('all');
   updateProgress();
   subscribeToGallery(galleryId);
@@ -517,6 +519,7 @@ window.openGallery = async (galleryId) => {
 window.showGalleryList = () => {
   document.getElementById('gallery-view').style.display = 'none';
   document.getElementById('gallery-list').style.display = 'block';
+  document.getElementById('upload-more-btn').style.display = 'none';
   currentGallery = null;
   currentImages = [];
   if (galleryUnsub) { galleryUnsub(); galleryUnsub = null; }
@@ -800,6 +803,141 @@ window.deleteImage = async (idx) => {
   await saveImages();
   showToast('🗑 Image deleted');
 };
+
+// ─── Upload More Images ───────────────────────────────────────────────────────
+let uploadMoreFiles = [];
+
+window.openUploadMoreModal = () => {
+  if (!isAdmin || !currentGallery) return;
+  uploadMoreFiles = [];
+  document.getElementById('upload-more-gallery-name').textContent = 'Adding to: ' + currentGallery.name;
+  document.getElementById('upload-more-file-list').style.display = 'none';
+  document.getElementById('upload-more-thumbs').innerHTML = '';
+  document.getElementById('upload-more-progress-wrap').style.display = 'none';
+  document.getElementById('upload-more-prog-fill').style.width = '0%';
+  document.getElementById('upload-more-file-input').value = '';
+  document.getElementById('upload-more-submit-btn').disabled = false;
+  document.getElementById('upload-more-cancel-btn').textContent = 'Cancel';
+  document.getElementById('upload-more-modal').style.display = 'flex';
+};
+
+window.closeUploadMoreModal = () => {
+  document.getElementById('upload-more-modal').style.display = 'none';
+  uploadMoreFiles = [];
+};
+
+window.handleUploadMoreSelect = (files) => {
+  uploadMoreFiles = Array.from(files);
+  if (!uploadMoreFiles.length) return;
+  document.getElementById('upload-more-file-list').style.display = 'block';
+  document.getElementById('upload-more-file-count').textContent = uploadMoreFiles.length + ' image' + (uploadMoreFiles.length !== 1 ? 's' : '') + ' selected';
+  const thumbs = document.getElementById('upload-more-thumbs');
+  thumbs.innerHTML = '';
+  uploadMoreFiles.slice(0, 50).forEach(file => {
+    const img = document.createElement('img');
+    img.className = 'upload-thumb';
+    img.src = URL.createObjectURL(file);
+    thumbs.appendChild(img);
+  });
+  if (uploadMoreFiles.length > 50) {
+    const more = document.createElement('div');
+    more.style.cssText = 'display:flex;align-items:center;justify-content:center;background:var(--surface2);border-radius:6px;font-size:11px;color:var(--text3);aspect-ratio:1';
+    more.textContent = '+' + (uploadMoreFiles.length - 50) + ' more';
+    thumbs.appendChild(more);
+  }
+};
+
+window.clearUploadMore = () => {
+  uploadMoreFiles = [];
+  document.getElementById('upload-more-file-input').value = '';
+  document.getElementById('upload-more-file-list').style.display = 'none';
+  document.getElementById('upload-more-thumbs').innerHTML = '';
+};
+
+window.doUploadMore = async () => {
+  if (!uploadMoreFiles.length) return showToast('Please select images to upload.');
+  if (!currentGallery) return;
+
+  const galleryId = currentGallery.id;
+  const total = uploadMoreFiles.length;
+  let uploaded = 0;
+
+  const fill = document.getElementById('upload-more-prog-fill');
+  const progText = document.getElementById('upload-more-prog-text');
+  const progPct = document.getElementById('upload-more-prog-pct');
+  const progSub = document.getElementById('upload-more-prog-sub');
+  const submitBtn = document.getElementById('upload-more-submit-btn');
+  const cancelBtn = document.getElementById('upload-more-cancel-btn');
+
+  document.getElementById('upload-more-file-list').style.display = 'none';
+  document.getElementById('upload-more-progress-wrap').style.display = 'block';
+  fill.style.width = '0%'; progPct.textContent = '0%';
+  progSub.textContent = '0 of ' + total + ' uploaded';
+  progText.textContent = 'Uploading...';
+  submitBtn.disabled = true;
+  cancelBtn.textContent = 'Please wait…';
+
+  const startIndex = currentImages.length;
+  const newImageUrls = new Array(total);
+
+  try {
+    const BATCH_SIZE = 5;
+    for (let b = 0; b < total; b += BATCH_SIZE) {
+      const batch = uploadMoreFiles.slice(b, b + BATCH_SIZE);
+      await Promise.all(batch.map(async (file, bIdx) => {
+        const i = b + bIdx;
+        const globalIdx = startIndex + i;
+        const safeName = String(globalIdx + 1).padStart(4, '0') + '_' + file.name.replace(/[^a-z0-9.\-_]/gi, '_');
+        const storageRef = ref(storage, 'galleries/' + galleryId + '/' + safeName);
+        await uploadBytesResumable(storageRef, file, { contentType: file.type });
+        newImageUrls[i] = await getDownloadURL(storageRef);
+        uploaded++;
+        const p = Math.round((uploaded / total) * 100);
+        fill.style.width = p + '%';
+        progPct.textContent = p + '%';
+        progSub.textContent = uploaded + ' of ' + total + ' uploaded';
+        progText.textContent = 'Uploading... (' + uploaded + ' of ' + total + ')';
+      }));
+    }
+
+    progText.textContent = 'Saving…';
+    const newImages = newImageUrls.map((url, i) => ({
+      url,
+      filename: uploadMoreFiles[i].name,
+      status: 'pending',
+      comments: []
+    }));
+    currentImages = currentImages.concat(newImages);
+    await saveImages();
+    showToast('✓ ' + total + ' image' + (total !== 1 ? 's' : '') + ' added');
+    closeUploadMoreModal();
+    renderImages();
+    updateProgress();
+  } catch (err) {
+    console.error(err);
+    showToast('Upload failed. Please try again.');
+    submitBtn.disabled = false;
+    cancelBtn.textContent = 'Cancel';
+  }
+};
+
+// Drag and drop for upload-more modal
+document.addEventListener('DOMContentLoaded', () => {
+  const moreDropZone = document.getElementById('upload-more-drop-zone');
+  if (moreDropZone) {
+    ['dragenter','dragover'].forEach(e => moreDropZone.addEventListener(e, ev => { ev.preventDefault(); moreDropZone.classList.add('drag-over'); }));
+    ['dragleave','drop'].forEach(e => moreDropZone.addEventListener(e, ev => { ev.preventDefault(); moreDropZone.classList.remove('drag-over'); }));
+    moreDropZone.addEventListener('drop', ev => {
+      const files = Array.from(ev.dataTransfer.files).filter(f => f.type.startsWith('image/'));
+      if (files.length) handleUploadMoreSelect(files);
+    });
+  }
+});
+
+// Close modal on backdrop click
+document.getElementById('upload-more-modal').addEventListener('click', e => {
+  if (e.target === document.getElementById('upload-more-modal')) closeUploadMoreModal();
+});
 
 // ─── Save images ──────────────────────────────────────────────────────────────
 async function saveImages() {
@@ -1353,5 +1491,35 @@ document.getElementById('access-modal').addEventListener('click', e => {
     <button class="download-all-btn" style="width:100%;justify-content:center" onclick="submitNamePrompt()">Enter gallery →</button>
   </div>
 </div>
+<!-- Upload More Images modal -->
+<div id="upload-more-modal" style="display:none;position:fixed;inset:0;z-index:200;background:rgba(0,0,0,0.75);align-items:center;justify-content:center">
+  <div style="background:var(--surface);border:1px solid var(--border2);border-radius:16px;padding:28px;width:min(520px,94vw);max-height:90vh;overflow-y:auto">
+    <h3 style="margin:0 0 4px;font-size:17px;color:var(--gold);font-family:'Calistoga',serif;font-weight:400">Upload More Images</h3>
+    <p style="font-size:12px;color:var(--text3);margin:0 0 16px" id="upload-more-gallery-name"></p>
+    <div class="upload-drop-zone" id="upload-more-drop-zone" onclick="document.getElementById('upload-more-file-input').click()">
+      <div class="upload-icon">⬆</div>
+      <div class="upload-title">Drag & drop images here</div>
+      <div class="upload-sub">or click to browse — JPG, PNG, WEBP supported</div>
+    </div>
+    <input type="file" id="upload-more-file-input" multiple accept="image/*" style="display:none" onchange="handleUploadMoreSelect(this.files)"/>
+    <div id="upload-more-file-list" style="display:none;margin-top:12px">
+      <div class="upload-file-header">
+        <span id="upload-more-file-count"></span>
+        <button class="btn-outline" style="padding:4px 12px;font-size:12px" onclick="clearUploadMore()">Clear</button>
+      </div>
+      <div class="upload-thumbs" id="upload-more-thumbs"></div>
+    </div>
+    <div id="upload-more-progress-wrap" style="display:none;margin-top:12px">
+      <div class="upload-prog-label"><span id="upload-more-prog-text">Uploading...</span><span id="upload-more-prog-pct">0%</span></div>
+      <div class="upload-prog-track"><div class="upload-prog-fill" id="upload-more-prog-fill" style="width:0%"></div></div>
+      <div class="upload-prog-sub" id="upload-more-prog-sub">0 of 0 uploaded</div>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:16px;justify-content:flex-end">
+      <button class="download-all-btn" style="background:var(--surface2);color:var(--text2);border:1px solid var(--border)" onclick="closeUploadMoreModal()" id="upload-more-cancel-btn">Cancel</button>
+      <button class="download-all-btn" onclick="doUploadMore()" id="upload-more-submit-btn">Upload Images</button>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>
