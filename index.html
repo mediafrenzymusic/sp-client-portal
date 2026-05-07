@@ -616,6 +616,27 @@ function renderImages() {
   }
 }
 
+function commentDeleteBtn(imgIdx, ci, c) {
+  const myId = currentUser
+    ? currentUser.email
+    : (localStorage.getItem('visitor-name-' + new URLSearchParams(location.search).get('g')) || '');
+  const owner = c.email || c.who;
+  if (!myId || owner !== myId) return '';
+  return '<button onclick="deleteComment(' + imgIdx + ',' + ci + ')" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:11px;margin-left:8px;padding:0" title="Delete comment">\u2715 delete</button>';
+}
+
+function renderCommentsList(imgIdx, comments) {
+  if (!comments || !comments.length) return '';
+  var items = comments.map(function(c, ci) {
+    return '<div class="comment-bubble">'
+      + '<div class="comment-who">' + c.who + '</div>'
+      + '<div class="comment-text">' + c.text + '</div>'
+      + '<div class="comment-time">' + c.time + commentDeleteBtn(imgIdx, ci, c) + '</div>'
+      + '</div>';
+  }).join('');
+  return '<div class="comments-list">' + items + '</div>';
+}
+
 function imageCardHTML(img, idx) {
   const status = img.status || 'pending';
   const comments = img.comments || [];
@@ -635,7 +656,7 @@ function imageCardHTML(img, idx) {
       </div>
       <textarea class="comment-area" id="comment-${idx}" placeholder="Add a comment…" rows="2"></textarea>
       <button class="comment-send" onclick="sendComment(${idx})">Send comment</button>
-      ${comments.length ? `<div class="comments-list">${comments.map((c, ci)=>`<div class="comment-bubble"><div class="comment-who">${c.who}</div><div class="comment-text">${c.text}</div><div class="comment-time">${c.time}${(currentUser && currentUser.email === c.email) || (!currentUser && c.who === (localStorage.getItem('visitor-name-' + new URLSearchParams(location.search).get('g')) || '')) ? `<button onclick="deleteComment(${idx},${ci})" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:11px;margin-left:8px;padding:0" title="Delete comment">✕ delete</button>` : ''}</div></div>`).join('')}</div>` : ''}
+      ${renderCommentsList(idx, comments)}
     </div>
   </div>`;
 }
@@ -685,9 +706,7 @@ function patchImageCard(idx) {
   // Update comments list
   let commentsList = card.querySelector('.comments-list');
   if (comments.length) {
-    const html = `<div class="comments-list">${comments.map((c, ci) =>
-      `<div class="comment-bubble"><div class="comment-who">${c.who}</div><div class="comment-text">${c.text}</div><div class="comment-time">${c.time}${(currentUser && currentUser.email === c.email) || (!currentUser && c.who === (localStorage.getItem('visitor-name-' + new URLSearchParams(location.search).get('g')) || '')) ? `<button onclick="deleteComment(${idx},${ci})" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:11px;margin-left:8px;padding:0" title="Delete comment">✕ delete</button>` : ''}</div></div>`
-    ).join('')}</div>`;
+    const html = renderCommentsList(idx, comments);
     if (commentsList) commentsList.outerHTML = html;
     else card.querySelector('.img-actions').insertAdjacentHTML('beforeend', html);
   } else if (commentsList) {
