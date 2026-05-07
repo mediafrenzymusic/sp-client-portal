@@ -336,7 +336,7 @@ html,body{min-height:100%;background:var(--black);font-family:'Onest',sans-serif
     <div class="galleries-section">
       <div class="section-label" id="galleries-label">Your galleries</div>
       <div class="galleries-grid" id="galleries-grid">
-        <div class="empty"><div class="empty-icon">📷</div>No galleries yet</div>
+        <div class="empty"><div class="empty-icon"></div>No galleries yet</div>
       </div>
       <div style="margin-top:20px" id="admin-create-wrap" style="display:none">
         <button class="btn-gold" onclick="document.getElementById('admin-bar').style.display='block';document.getElementById('admin-bar').scrollIntoView({behavior:'smooth'})">+ Create Gallery</button>
@@ -377,10 +377,10 @@ html,body{min-height:100%;background:var(--black);font-family:'Onest',sans-serif
 
 <!-- Lightbox -->
 <div id="lightbox">
-  <button class="lb-close" onclick="closeLightbox()">×</button>
-  <button class="lb-nav" id="lb-prev" onclick="lbNav(-1)">‹</button>
+  <button class="lb-close" onclick="closeLightbox()">\'d7</button>
+  <button class="lb-nav" id="lb-prev" onclick="lbNav(-1)">\'8b</button>
   <img id="lb-img" src="" alt=""/>
-  <button class="lb-nav" id="lb-next" onclick="lbNav(1)">›</button>
+  <button class="lb-nav" id="lb-next" onclick="lbNav(1)">\'9b</button>
 </div>
 
 <!-- Toast -->
@@ -466,7 +466,7 @@ function loadGalleries() {
 function renderGalleries(galleries) {
   const grid = document.getElementById('galleries-grid');
   if (!galleries.length) {
-    grid.innerHTML = '<div class="empty"><div class="empty-icon">📷</div>' + (isAdmin ? 'No galleries yet. Create one above.' : 'No galleries available yet.') + '</div>';
+    grid.innerHTML = '<div class="empty"><div class="empty-icon"></div>' + (isAdmin ? 'No galleries yet. Create one above.' : 'No galleries available yet.') + '</div>';
     return;
   }
   grid.innerHTML = galleries.map(g => {
@@ -477,20 +477,20 @@ function renderGalleries(galleries) {
     const totalComments = imgs.reduce((n, i) => n + (i.comments ? i.comments.length : 0), 0);
     const thumb = imgs.length ? imgs[0].url : null;
     return `<div class="gallery-card" onclick="openGallery('${g.id}')">
-      ${thumb ? `<img class="gallery-thumb" src="${thumb}" loading="lazy"/>` : '<div class="gallery-thumb-placeholder">📷</div>'}
+      ${thumb ? `<img class="gallery-thumb" src="${thumb}" loading="lazy"/>` : '<div class="gallery-thumb-placeholder"></div>'}
       <div class="gallery-info">
         <div class="gallery-name">${g.name}</div>
         <div class="gallery-meta">${g.shootDate || ''} &middot; ${imgs.length} image${imgs.length!==1?'s':''}</div>
         <div class="gallery-stats">
           ${approved ? `<span class="stat-pill approved">✓ ${approved} approved</span>` : ''}
           ${rejected ? `<span class="stat-pill rejected">✗ ${rejected} rejected</span>` : ''}
-          ${totalComments ? `<span class="stat-pill comments">💬 ${totalComments}</span>` : ''}
+          ${totalComments ? `<span class="stat-pill comments"> ${totalComments}</span>` : ''}
         </div>
         ${isAdmin ? `
           <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
             <button class="btn-notify-client" onclick="event.stopPropagation();notifyClient('${g.id}','${g.name}','${g.clientEmail}','${g.shootDate||''}')">✉ Notify client</button>
-            <button class="btn-copy-link" onclick="event.stopPropagation();copyGalleryLink('${g.id}','${g.shareToken||''}','${g.name}')">🔗 Copy link</button>
-            <button class="btn-notify-client" onclick="event.stopPropagation();manageAccess('${g.id}','${g.name}','${g.clientEmail}',${JSON.stringify(g.accessEmails||[])})">👥 Manage access</button>
+            <button class="btn-copy-link" onclick="event.stopPropagation();copyGalleryLink('${g.id}','${g.shareToken||''}','${g.name}')"> Copy link</button>
+            <button class="btn-notify-client" onclick="event.stopPropagation();manageAccess('${g.id}','${g.name}','${g.clientEmail}',${JSON.stringify(g.accessEmails||[])})"> Manage access</button>
             <button class="gallery-delete-btn" style="margin-top:0" onclick="event.stopPropagation();deleteGallery('${g.id}')">Delete gallery</button>
           </div>` : ''}
       </div>
@@ -575,7 +575,7 @@ function renderImages() {
   grid.style.cssText = '';
 
   if (!currentImages.length) {
-    grid.innerHTML = '<div class="empty"><div class="empty-icon">📷</div>No images in this gallery.</div>';
+    grid.innerHTML = '<div class="empty"><div class="empty-icon"></div>No images in this gallery.</div>';
     return;
   }
 
@@ -591,7 +591,7 @@ function renderImages() {
     });
 
   if (!filtered.length) {
-    grid.innerHTML = `<div class="empty" style="padding:48px 24px"><div class="empty-icon">📷</div>No ${currentFilter} images yet.</div>`;
+    grid.innerHTML = `<div class="empty" style="padding:48px 24px"><div class="empty-icon"></div>No ${currentFilter} images yet.</div>`;
     return;
   }
 
@@ -625,7 +625,7 @@ function imageCardHTML(img, idx) {
       ${status !== 'pending' ? `<div class="img-status-badge ${status}">${status==='approved'?'✓ Approved':'✗ Rejected'}</div>` : ''}
       <div class="img-num">${idx+1} / ${currentImages.length}</div>
     </div>
-    ${img.filename ? `<div class="img-filename" title="${img.filename}">📄 ${img.filename}</div>` : ''}
+    ${img.filename ? `<div class="img-filename" title="${img.filename}"> ${img.filename}</div>` : ''}
     <div class="img-actions">
       <div class="img-action-row">
         <button class="img-action-btn approve ${status==='approved'?'active':''}" onclick="setStatus(${idx},'approved')">✓ Approve</button>
@@ -635,7 +635,7 @@ function imageCardHTML(img, idx) {
       </div>
       <textarea class="comment-area" id="comment-${idx}" placeholder="Add a comment…" rows="2"></textarea>
       <button class="comment-send" onclick="sendComment(${idx})">Send comment</button>
-      ${comments.length ? `<div class="comments-list">${comments.map(c=>`<div class="comment-bubble"><div class="comment-who">${c.who}</div><div class="comment-text">${c.text}</div><div class="comment-time">${c.time}</div></div>`).join('')}</div>` : ''}
+      ${comments.length ? `<div class="comments-list">${comments.map((c, ci)=>`<div class="comment-bubble"><div class="comment-who">${c.who}</div><div class="comment-text">${c.text}</div><div class="comment-time">${c.time}${(currentUser && currentUser.email === c.email) || (!currentUser && c.who === (localStorage.getItem('visitor-name-' + new URLSearchParams(location.search).get('g')) || '')) ? `<button onclick="deleteComment(${idx},${ci})" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:11px;margin-left:8px;padding:0" title="Delete comment">✕ delete</button>` : ''}</div></div>`).join('')}</div>` : ''}
     </div>
   </div>`;
 }
@@ -685,8 +685,8 @@ function patchImageCard(idx) {
   // Update comments list
   let commentsList = card.querySelector('.comments-list');
   if (comments.length) {
-    const html = `<div class="comments-list">${comments.map(c =>
-      `<div class="comment-bubble"><div class="comment-who">${c.who}</div><div class="comment-text">${c.text}</div><div class="comment-time">${c.time}</div></div>`
+    const html = `<div class="comments-list">${comments.map((c, ci) =>
+      `<div class="comment-bubble"><div class="comment-who">${c.who}</div><div class="comment-text">${c.text}</div><div class="comment-time">${c.time}${(currentUser && currentUser.email === c.email) || (!currentUser && c.who === (localStorage.getItem('visitor-name-' + new URLSearchParams(location.search).get('g')) || '')) ? `<button onclick="deleteComment(${idx},${ci})" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:11px;margin-left:8px;padding:0" title="Delete comment">✕ delete</button>` : ''}</div></div>`
     ).join('')}</div>`;
     if (commentsList) commentsList.outerHTML = html;
     else card.querySelector('.img-actions').insertAdjacentHTML('beforeend', html);
@@ -726,14 +726,33 @@ window.sendComment = async (idx) => {
   const who = currentUser
     ? (currentUser.displayName || currentUser.email)
     : (document.getElementById('nav-user').textContent || 'Guest');
-  const comment = { who, text, time: new Date().toLocaleString('en-GB') };
+  const comment = { 
+    who, 
+    text, 
+    time: new Date().toLocaleString('en-GB'),
+    email: currentUser ? currentUser.email : who  // store identifier
+  };
   if (!currentImages[idx].comments) currentImages[idx].comments = [];
   currentImages[idx].comments.push(comment);
   el.value = '';
-  patchImageCard(idx);   // update just this card — no image reloads
+  patchImageCard(idx);
   await saveImages();
   if (currentUser) notifyAdmin('comment', idx, text);
-  showToast('💬 Comment sent');
+  showToast(' Comment sent');
+};
+
+window.deleteComment = async (idx, commentIdx) => {
+  const comment = currentImages[idx].comments[commentIdx];
+  const myName = currentUser 
+    ? currentUser.email 
+    : (localStorage.getItem('visitor-name-' + new URLSearchParams(location.search).get('g')) || '');
+  const commentOwner = comment.email || comment.who;
+  if (commentOwner !== myName) return showToast('You can only delete your own comments.');
+  if (!confirm('Delete this comment?')) return;
+  currentImages[idx].comments.splice(commentIdx, 1);
+  patchImageCard(idx);
+  await saveImages();
+  showToast('Comment deleted');
 };
 
 // ─── Save images ──────────────────────────────────────────────────────────────
@@ -877,7 +896,7 @@ window.downloadFilenameList = () => {
     ...approved.map((img, i) => img.filename || `image_${String(i+1).padStart(3,'0')}`)
   ];
 
-  const blob = new Blob([lines.join('\n')], { type: 'text/plain' });
+  const blob = new Blob([lines.join('\\n')], { type: 'text/plain' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
@@ -942,7 +961,7 @@ window.createGallery = async () => {
   // Generate or use custom share token
   const customSlug = document.getElementById('gal-sharetoken').value.trim();
   const shareToken = customSlug
-    ? customSlug.replace(/[^a-z0-9\-]/gi, '-').toLowerCase()
+    ? customSlug.replace(/[^a-z0-9\\-]/gi, '-').toLowerCase()
     : name.replace(/[^a-z0-9]/gi, '-').toLowerCase() + '-' + Math.random().toString(36).slice(2, 8);
 
   const wrap = document.getElementById('upload-progress-wrap');
@@ -968,7 +987,7 @@ window.createGallery = async () => {
       const batch = selectedFiles.slice(b, b + BATCH_SIZE);
       await Promise.all(batch.map(async (file, bIdx) => {
         const i = b + bIdx;
-        const safeName = `${String(i + 1).padStart(4, '0')}_${file.name.replace(/[^a-z0-9.\-_]/gi, '_')}`;
+        const safeName = `${String(i + 1).padStart(4, '0')}_${file.name.replace(/[^a-z0-9.\\-_]/gi, '_')}`;
         const storageRef = ref(storage, `galleries/${galleryId}/${safeName}`);
         await uploadBytesResumable(storageRef, file, { contentType: file.type });
         imageUrls[i] = await getDownloadURL(storageRef);
@@ -1045,7 +1064,7 @@ window.copyGalleryLink = async (docId, shareToken, galleryName) => {
   const link = `${location.origin}${location.pathname}?g=${encodeURIComponent(token)}`;
   try {
     await navigator.clipboard.writeText(link);
-    showToast('🔗 Link copied! Share it with your client.');
+    showToast(' Link copied! Share it with your client.');
   } catch {
     prompt('Copy this link:', link);
   }
@@ -1280,7 +1299,7 @@ document.getElementById('access-modal').addEventListener('click', e => {
 <!-- Who are you? modal -->
 <div id="name-prompt-modal" style="display:none;position:fixed;inset:0;z-index:300;background:rgba(0,0,0,0.75);align-items:center;justify-content:center">
   <div style="background:var(--surface1);border:1px solid var(--border);border-radius:16px;padding:32px;width:min(400px,90vw);text-align:center">
-    <div style="font-size:32px;margin-bottom:12px">👋</div>
+    <div style="font-size:32px;margin-bottom:12px"></div>
     <h3 style="margin:0 0 8px;font-size:18px;color:var(--text)">Welcome to your gallery</h3>
     <p style="font-size:13px;color:var(--text3);margin:0 0 16px;line-height:1.6">So your comments and selections are saved under your name, please enter your name below.</p>
     <p style="font-size:12px;color:var(--text3);background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin:0 0 20px;line-height:1.6;text-align:left">⚠️ <strong style="color:var(--text2)">Shared gallery notice:</strong> If this gallery has been shared with multiple viewers, please be aware that any comments or approvals you make will be visible to everyone with access.</p>
