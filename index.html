@@ -276,9 +276,9 @@ html,body{min-height:100%;background:var(--black);font-family:'Onest',sans-serif
 <!-- Main App -->
 <div id="app">
 <nav class="topnav">
-    <a href="#" onclick="showGalleryList();return false;" class="nav-brand">
+   <a href="#" onclick="isAdmin ? showGalleryList() : null;return false;" class="nav-brand" id="nav-brand-link">
 <img class="nav-favicon" src="https://static.wixstatic.com/media/36a0f5_f73e9aa71c0f44c3a1c34cd9e17d83ab~mv2.png" alt="S"/><img class="nav-wordmark" src="https://static.wixstatic.com/media/36a0f5_c07e579c416e4b0eb1c23ce5b24d1e9d~mv2.png" alt="Stuart Price"/>
-    </a>
+</a>
     <div class="nav-right">
       <span class="nav-user" id="nav-user"></span>
       <span class="admin-badge" id="admin-badge" style="display:none">Admin</span>
@@ -1266,7 +1266,9 @@ document.getElementById('access-modal').addEventListener('click', e => {
     <div id="access-list" style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px"></div>
     <div style="display:flex;gap:8px">
       <input id="access-new-email" class="admin-input" placeholder="Add email address" style="flex:1;margin:0" onkeydown="if(event.key==='Enter')addAccessEmail()"/>
-      <button class="download-all-btn" style="flex-shrink:0;padding:0 16px" onclick="addAccessEmail()">Add</button>
+      <button class="download-all-btn" style="flex-shrink:0;padding:0 16px" onclick="addAccessEmail()">Add</but<a href="#" onclick="isAdmin ? showGalleryList() : null;return false;" class="nav-brand" id="nav-brand-link">
+<img class="nav-favicon" src="https://static.wixstatic.com/media/36a0f5_f73e9aa71c0f44c3a1c34cd9e17d83ab~mv2.png" alt="S"/><img class="nav-wordmark" src="https://static.wixstatic.com/media/36a0f5_c07e579c416e4b0eb1c23ce5b24d1e9d~mv2.png" alt="Stuart Price"/>
+</a>ton>
     </div>
     <div style="display:flex;gap:8px;margin-top:16px;justify-content:flex-end">
       <button class="download-all-btn" style="background:var(--surface2);color:var(--text2);border:1px solid var(--border)" onclick="closeAccessModal()">Cancel</button>
