@@ -1120,7 +1120,7 @@ window.downloadZip = async (filter = 'all') => {
       if (count) count.textContent = `${loaded} of ${toDownload.length}`;
     }));
 
-    const zipBlob = await zip.generateAsync({ type:'blob', compression:'DEFLATE', compressionOptions:{level:3} });
+    const zipBlob = await zip.generateAsync({ type:'blob', compression:'STORE' });
     const url = URL.createObjectURL(zipBlob);
     const a = document.createElement('a');
     a.href = url;
