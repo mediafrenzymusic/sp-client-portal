@@ -1102,23 +1102,40 @@ window.downloadZip = async (filter = 'all') => {
     const folder = zip.folder(zipName);
     let loaded = 0;
 
-    await Promise.all(toDownload.map(async (img, idx) => {
-      try {
-        const response = await fetch(img.url);
-        const blob = await response.blob();
-        const ext = blob.type.includes('png') ? 'png' : blob.type.includes('webp') ? 'webp' : 'jpg';
-        const filename = img.filename || `${zipName}_${String(idx+1).padStart(3,'0')}.${ext}`;
-        folder.file(filename, blob);
-      } catch(e) {
-        folder.file(`image_${idx+1}_url.txt`, img.url);
-      }
-      loaded++;
-      const pct = Math.round(loaded / toDownload.length * 100);
-      const fill = document.getElementById('zip-fill');
-      const count = document.getElementById('zip-count');
-      if (fill) fill.style.width = pct + '%';
-      if (count) count.textContent = `${loaded} of ${toDownload.length}`;
-    }));
+   const CONCURRENCY = 8;
+let active = 0, queueIndex = 0;
+
+await new Promise((resolve) => {
+  function next() {
+    if (queueIndex === toDownload.length && active === 0) return resolve();
+    while (active < CONCURRENCY && queueIndex < toDownload.length) {
+      const idx = queueIndex++;
+      const img = toDownload[idx];
+      active++;
+      fetch(img.url)
+        .then(r => r.blob())
+        .then(blob => {
+          const ext = blob.type.includes('png') ? 'png' : blob.type.includes('webp') ? 'webp' : 'jpg';
+          const filename = img.filename || `${zipName}_${String(idx+1).padStart(3,'0')}.${ext}`;
+          folder.file(filename, blob);
+        })
+        .catch(() => {
+          folder.file(`image_${idx+1}_url.txt`, img.url);
+        })
+        .finally(() => {
+          loaded++;
+          const pct = Math.round(loaded / toDownload.length * 100);
+          const fill = document.getElementById('zip-fill');
+          const count = document.getElementById('zip-count');
+          if (fill) fill.style.width = pct + '%';
+          if (count) count.textContent = `${loaded} of ${toDownload.length}`;
+          active--;
+          next();
+        });
+    }
+  }
+  next();
+});
 
     const zipBlob = await zip.generateAsync({ type:'blob', compression:'STORE' });
     const url = URL.createObjectURL(zipBlob);
