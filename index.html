@@ -437,6 +437,7 @@ const ADMIN_EMAIL = "stuart@stuartprice.co.uk"; // Change to your email
 const NOTIFY_EMAIL = "stuart@stuartprice.co.uk"; // Notifications sent to this
 
 let currentUser = null;
+let visitorName = '';
 let isAdmin = false;
 let currentGallery = null;
 let currentImages = [];
@@ -835,12 +836,12 @@ window.sendComment = async (idx) => {
   if (!text) return;
   const who = currentUser
     ? (currentUser.displayName || currentUser.email)
-    : (document.getElementById('nav-user').textContent || 'Guest');
+    : (window._visitorName || document.getElementById('nav-user').textContent || 'Guest');
   const comment = { 
     who, 
     text, 
     time: new Date().toLocaleString('en-GB'),
-    email: currentUser ? currentUser.email : who  // store identifier
+    email: currentUser ? currentUser.email : who
   };
   if (!currentImages[idx].comments) currentImages[idx].comments = [];
   currentImages[idx].comments.push(comment);
@@ -850,12 +851,11 @@ window.sendComment = async (idx) => {
   if (currentUser) notifyAdmin('comment', idx, text);
   showToast(' Comment sent');
 };
-
 window.deleteComment = async (idx, commentIdx) => {
   const comment = currentImages[idx].comments[commentIdx];
   const myName = currentUser 
     ? currentUser.email 
-    : (localStorage.getItem('visitor-name-' + new URLSearchParams(location.search).get('g')) || '');
+    : (window._visitorName || document.getElementById('nav-user').textContent || '');
   const commentOwner = comment.email || comment.who;
   if (commentOwner !== myName) return showToast('You can only delete your own comments.');
   if (!confirm('Delete this comment?')) return;
@@ -864,7 +864,6 @@ window.deleteComment = async (idx, commentIdx) => {
   await saveImages();
   showToast('Comment deleted');
 };
-
 window.deleteImage = async (idx) => {
   if (!isAdmin) return;
   const img = currentImages[idx];
@@ -876,7 +875,7 @@ window.deleteImage = async (idx) => {
   await saveImages();
   showToast('🗑 Image deleted');
 };
-
+  
 // ─── Upload More Images ───────────────────────────────────────────────────────
 let uploadMoreFiles = [];
 
@@ -1379,6 +1378,7 @@ async function checkSharedLink() {
     document.getElementById('name-prompt-modal').style.display = 'none';
     document.getElementById('app').style.display = 'block';
     document.getElementById('nav-user').textContent = visitorName;
+    window._visitorName = visitorName;
 
     // Show banner
     const banner = document.getElementById('link-banner');
